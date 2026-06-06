@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geometry — Point to Polygon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ─── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #07080f;
+  --surface:   rgba(255,255,255,0.035);
+  --border:    rgba(255,255,255,0.07);
+  --accent:    #d4a853;
+  --accent-dim:rgba(212,168,83,0.15);
+  --text:      #f0ede6;
+  --muted:     rgba(240,237,230,0.45);
+  --sans:      'Space Grotesk', sans-serif;
+  --mono:      'Space Mono', monospace;
+}
+
+html {
+  background: var(--bg); color: var(--text); font-family: var(--sans); overflow-x: hidden;
+  scroll-snap-type: y proximity;
+  scroll-behavior: smooth;
+}
+
+/* ─── Background Grid ──────────────────────────────────────────────────────── */
+.bg-grid {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 70px 70px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 100%);
+  opacity: 0.5;
+}
+
+main { position: relative; z-index: 1; }
+
+/* ─── Scroll Snap Points ───────────────────────────────────────────────────── */
+.hero          { scroll-snap-align: start; }
+.shape-section { scroll-snap-align: start; }
+.ngon-section  { scroll-snap-align: start; }
+
+/* ─── Hero ─────────────────────────────────────────────────────────────────── */
+.hero {
+  height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; position: relative; overflow: hidden;
+  padding: 2rem;
+}
+
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 42%, rgba(212,168,83,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 60% at 50% 60%, rgba(30,15,117,0.06) 0%, transparent 80%);
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-size: 0.7rem; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 1.75rem;
+}
+
+.hero h1 {
+  font-size: clamp(4.5rem, 13vw, 11rem);
+  font-weight: 700; letter-spacing: -0.025em; line-height: 0.88;
+  text-transform: uppercase; margin-bottom: 2rem;
+}
+
+.hero-sub {
+  font-size: clamp(0.9rem, 1.8vw, 1.15rem); color: var(--muted);
+  max-width: 480px; line-height: 1.65; margin-bottom: 4rem;
+}
+
+.scroll-cta {
+  display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+  font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--muted); animation: cta-bounce 2.4s ease-in-out infinite;
+}
+.scroll-cta svg { width: 18px; height: 18px; }
+
+@keyframes cta-bounce {
+  0%,100% { transform: translateY(0); opacity: 0.5; }
+  50%      { transform: translateY(10px); opacity: 0.9; }
+}
+
+/* ─── Shape Sections ───────────────────────────────────────────────────────── */
+.shape-section { position: relative; height: 260vh; }
+
+.sticky-wrapper {
+  position: sticky; top: 0; height: 100vh;
+  display: grid; grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  /* Solid base background prevents any bleed from adjacent sections.
+     The per-section atmospheric tint is layered on top via JS backgroundImage. */
+  background-color: var(--bg);
+}
+
+/* Left pane */
+.shape-display {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 5rem 3rem; position: relative;
+}
+
+.shape-label {
+  position: absolute; top: 3.5rem; left: 4rem;
+}
+
+.shape-dimension {
+  font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 0.5rem;
+}
+
+.shape-label h2 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700; text-transform: uppercase; letter-spacing: -0.02em;
+}
+
+.shape-canvas {
+  width: min(340px, 80vw); height: min(340px, 80vw);
+  perspective: 900px;
+}
+
+.shape-inner {
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.08s linear;
+  will-change: transform;
+}
+
+.shape-inner svg { width: 100%; height: 100%; overflow: visible; }
+
+/* Animated path */
+.shape-path {
+  fill: none; stroke: var(--accent); stroke-width: 2.5;
+  stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 12px rgba(212,168,83,0.45));
+  transition: stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+.shape-fill {
+  fill: var(--accent-dim); stroke: none;
+  opacity: 0; transition: opacity 0.8s ease 1.1s;
+}
+
+.shape-section.in-view .shape-path { stroke-dashoffset: 0 !important; }
+.shape-section.in-view .shape-fill { opacity: 1; }
+
+/* Point special */
+.point-dot {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 18px rgba(212,168,83,0.9));
+  transform: scale(0);
+  transform-origin: 200px 200px;
+  transition: transform 0.6s cubic-bezier(0.34,1.56,0.64,1);
+}
+.point-ring {
+  fill: none; stroke: var(--accent);
+  opacity: 0; transform: scale(0.5);
+  transform-origin: 200px 200px;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.shape-section.in-view .point-dot  { transform: scale(1); }
+.shape-section.in-view .point-ring { opacity: 1; transform: scale(1); }
+.shape-section.in-view .point-ring:nth-child(2) { transition-delay: 0.25s; opacity: 0.35; }
+.shape-section.in-view .point-ring:nth-child(3) { transition-delay: 0.5s;  opacity: 0.15; }
+
+/* Vertex dots */
+.vertex-dot {
+  fill: var(--accent); r: 4px;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.shape-section.in-view .vertex-dot { opacity: 1; transition-delay: 1.4s; }
+
+/* Shape counter */
+.shape-counter {
+  position: absolute; bottom: 3rem; left: 4rem;
+  font-family: var(--mono); font-size: 0.7rem;
+  color: var(--muted); letter-spacing: 0.1em;
+}
+
+/* Right pane */
+.formula-panel {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 4rem 3.5rem 4rem 2.5rem; gap: 1.25rem;
+  border-left: 1px solid var(--border);
+}
+
+.formula-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.35rem 1.5rem;
+  transform: translateY(28px); opacity: 0;
+  transition: transform 0.55s cubic-bezier(0.4,0,0.2,1),
+              opacity 0.55s ease;
+}
+
+.formula-card.visible { transform: translateY(0); opacity: 1; }
+.formula-card.visible:nth-child(2) { transition-delay: 0.07s; }
+.formula-card.visible:nth-child(3) { transition-delay: 0.14s; }
+.formula-card.visible:nth-child(4) { transition-delay: 0.21s; }
+
+.f-label {
+  font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 0.6rem;
+}
+
+.f-expr {
+  font-family: var(--mono); font-size: 1.05rem;
+  color: var(--text); margin-bottom: 0.5rem; line-height: 1.4;
+}
+
+.f-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
+
+/* ─── N-gon Section ────────────────────────────────────────────────────────── */
+.ngon-section {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 6rem 2rem; gap: 3rem;
+  border-top: 1px solid var(--border);
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(203,216,232,0.055) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(203,216,232,0.04) 0%, transparent 100%);
+}
+
+.ngon-head { text-align: center; }
+
+.ngon-head h2 {
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  text-transform: uppercase; letter-spacing: -0.025em;
+  font-weight: 700;
+}
+
+.ngon-head p { color: var(--muted); margin-top: 0.75rem; font-size: 1rem; }
+
+.ngon-body {
+  display: flex; gap: 4rem;
+  align-items: center; flex-wrap: wrap; justify-content: center;
+  width: 100%; max-width: 860px;
+}
+
+.ngon-svg-wrap {
+  width: min(300px, 80vw); height: min(300px, 80vw);
+  flex-shrink: 0;
+}
+
+.ngon-svg-wrap svg { width: 100%; height: 100%; overflow: visible; }
+
+.ngon-path {
+  fill: var(--accent-dim); stroke: var(--accent); stroke-width: 2.5;
+  stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 12px rgba(212,168,83,0.4));
+  transition: d 0.4s ease;
+}
+
+.ngon-right { display: flex; flex-direction: column; gap: 1rem; flex: 1; min-width: 260px; }
+
+.n-display {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.n-big {
+  font-family: var(--mono); font-size: 3.5rem;
+  font-weight: 700; color: var(--accent); line-height: 1;
+}
+
+.n-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.1em; }
+
+input[type=range] {
+  width: 100%; appearance: none; height: 2px;
+  background: var(--border); border-radius: 2px;
+  outline: none; cursor: pointer; margin-bottom: 0.75rem;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 12px rgba(212,168,83,0.6);
+  cursor: grab;
+}
+
+.range-labels {
+  display: flex; justify-content: space-between;
+  font-size: 0.7rem; color: var(--muted); margin-top: -0.4rem;
+  font-family: var(--mono);
+}
+
+.ngon-formula-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem 1.25rem;
+}
+
+.ngon-formula-card .f-expr { font-size: 0.95rem; }
+
+/* ─── Back to Top ──────────────────────────────────────────────────────────── */
+.back-top {
+  position: fixed; bottom: 2rem; right: 1.5rem; z-index: 100;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity 0.35s ease, transform 0.35s ease, background 0.2s;
+}
+.back-top.visible { opacity: 1; pointer-events: all; transform: translateY(0); }
+.back-top:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+.back-top svg { width: 14px; height: 14px; }
+
+/* ─── Exercises Section ────────────────────────────────────────────────────── */
+.exercises-section {
+  padding: 6rem 2rem 4rem;
+  border-top: 1px solid var(--border);
+  scroll-snap-align: start;
+}
+
+.exercises-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem;
+  max-width: 900px; margin: 0 auto 3.5rem;
+}
+
+.exercises-header-text h2 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  text-transform: uppercase; letter-spacing: -0.02em; font-weight: 700;
+}
+
+.exercises-header-text p {
+  color: var(--muted); margin-top: 0.5rem; font-size: 0.9rem;
+}
+
+.score-pill {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 0.5rem 1.1rem;
+  font-family: var(--mono); font-size: 0.8rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  white-space: nowrap; align-self: flex-start; margin-top: 0.5rem;
+}
+
+.score-correct { color: #5dde8b; font-weight: 700; }
+.score-sep     { color: var(--muted); }
+.score-total   { color: var(--muted); }
+
+/* Groups */
+.ex-group { max-width: 900px; margin: 0 auto 3rem; }
+
+.ex-group-header {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ex-shape-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ex-group-title {
+  font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--text); font-weight: 600;
+}
+
+/* Cards */
+.ex-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem 1.5rem;
+  margin-bottom: 0.85rem;
+  transition: border-color 0.3s;
+}
+
+.ex-card.correct { border-color: rgba(93,222,139,0.4); }
+.ex-card.wrong   { border-color: rgba(255,100,100,0.35); }
+
+.ex-num {
+  font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+  margin-bottom: 0.5rem; letter-spacing: 0.1em;
+}
+
+.ex-question {
+  font-size: 0.92rem; color: var(--text);
+  line-height: 1.55; margin-bottom: 1rem;
+}
+
+.ex-row {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+}
+
+.ex-input {
+  font-family: var(--mono); font-size: 0.95rem;
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.45rem 0.85rem;
+  color: var(--text); width: 130px;
+  transition: border-color 0.2s;
+  outline: none;
+}
+.ex-input:focus { border-color: rgba(212,168,83,0.5); }
+.ex-card.correct .ex-input { border-color: rgba(93,222,139,0.5); color: #5dde8b; }
+.ex-card.wrong   .ex-input { border-color: rgba(255,100,100,0.5); }
+
+.ex-btn {
+  font-family: var(--sans); font-size: 0.7rem; letter-spacing: 0.12em;
+  text-transform: uppercase; font-weight: 600;
+  padding: 0.45rem 1rem; border-radius: 8px;
+  background: var(--accent-dim); border: 1px solid rgba(212,168,83,0.3);
+  color: var(--accent); cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.ex-btn:hover { background: rgba(212,168,83,0.2); }
+.ex-btn:disabled { opacity: 0.35; cursor: default; }
+
+.ex-feedback {
+  font-size: 0.78rem; font-family: var(--mono);
+  min-height: 1.1em;
+}
+.ex-feedback.ok   { color: #5dde8b; }
+.ex-feedback.err  { color: #ff8080; }
+
+.ex-hint {
+  font-size: 0.75rem; color: var(--muted);
+  margin-top: 0.6rem; font-style: italic;
+  display: none;
+}
+.ex-hint.show { display: block; }
+
+/* ─── Footer ───────────────────────────────────────────────────────────────── */
+footer {
+  text-align: center; padding: 3rem 2rem;
+  color: var(--muted); font-size: 0.75rem;
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.08em;
+}
+
+/* ─── Hamburger Button ─────────────────────────────────────────────────────── */
+.nav-btn {
+  position: fixed; top: 1.25rem; right: 1.5rem; z-index: 200;
+  width: 42px; height: 42px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50%; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; transition: background 0.2s, border-color 0.2s;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+.nav-btn span {
+  display: block; width: 16px; height: 1.5px;
+  background: var(--text); border-radius: 2px;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  transform-origin: center;
+}
+.nav-btn.open { opacity: 0; pointer-events: none; }
+
+/* ─── Nav Overlay ──────────────────────────────────────────────────────────── */
+.nav-overlay {
+  position: fixed; inset: 0; z-index: 150;
+  pointer-events: none; visibility: hidden;
+}
+.nav-overlay.open { pointer-events: all; visibility: visible; }
+
+/* Dark backdrop (click outside area) */
+.nav-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.55);
+  opacity: 0; transition: opacity 0.4s ease;
+  backdrop-filter: blur(4px);
+}
+.nav-overlay.open .nav-backdrop { opacity: 1; }
+
+/* Split panel */
+.nav-panel {
+  position: absolute; inset: 0;
+  display: grid; grid-template-columns: 1fr 1fr;
+  transform: translateX(100%);
+  transition: transform 0.45s cubic-bezier(0.4,0,0.2,1);
+}
+.nav-overlay.open .nav-panel { transform: translateX(0); }
+
+/* Left decorative pane */
+.nav-left {
+  background: linear-gradient(160deg, #0d1525 0%, #131c2e 60%, #0a0f1a 100%);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.nav-left-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  opacity: 0.6;
+}
+.nav-left svg { width: 140px; height: 140px; }
+.nav-left-title {
+  font-size: 0.65rem; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Right nav pane */
+.nav-right {
+  background: #0b0e18;
+  display: flex; flex-direction: column;
+  padding: 2rem 2.5rem 2rem;
+  overflow-y: auto;
+  position: relative;
+}
+
+.nav-close {
+  align-self: flex-end;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text); font-size: 0.9rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+  margin-bottom: 2rem; flex-shrink: 0;
+}
+.nav-close:hover { background: rgba(255,255,255,0.12); }
+
+/* Tab row */
+.nav-tabs {
+  display: flex; gap: 0.35rem;
+  margin-bottom: 2rem; flex-shrink: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 999px; padding: 0.3rem;
+  align-self: flex-start;
+}
+.nav-tab-btn {
+  padding: 0.4rem 1.1rem; border-radius: 999px;
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 0.72rem;
+  font-weight: 500; letter-spacing: 0.08em;
+  color: var(--muted); transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.nav-tab-btn.active {
+  background: var(--accent); color: var(--bg); font-weight: 600;
+}
+.nav-tab-btn:not(.active):hover { color: var(--text); }
+
+/* Nav lists (one shown at a time) */
+.nav-list {
+  flex: 1;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 0.1rem;
+}
+.nav-list.hidden { display: none; }
+.nav-list a {
+  font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+  font-weight: 700; text-transform: uppercase;
+  letter-spacing: -0.01em; color: var(--muted);
+  text-decoration: none;
+  padding: 0.3rem 0;
+  transition: color 0.2s, padding-left 0.2s;
+  display: block;
+}
+.nav-list a:hover { color: var(--text); padding-left: 0.5rem; }
+.nav-list a.active-shape { color: var(--accent); }
+
+/* Language toggle inside nav */
+.nav-lang {
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem; margin-top: 1.5rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  flex-shrink: 0;
+}
+.nav-lang-label {
+  font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted); margin-right: 0.25rem;
+}
+.nav-lang-btn {
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--sans);
+  font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.2s;
+}
+.nav-lang-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.nav-lang-btn:not(.active):hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+/* ─── Tablet / Mobile (≤ 860px) ───────────────────────────────────────────── */
+@media (max-width: 860px) {
+  /* Scroll-snap requires fixed-height sections; disable it on mobile where
+     sections are natural-flow height. */
+  html { scroll-snap-type: none; }
+
+  /* Sections become normal document flow — no scroll budget for formula reveals.
+     Formulas are shown immediately via JS when the section enters the viewport. */
+  .shape-section { height: auto; border-top: 1px solid var(--border); }
+
+  .sticky-wrapper {
+    position: static;           /* Remove sticky — no scroll budget on mobile */
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+    /* On mobile the background is set per-section rather than per-sticky-wrapper */
+    background-color: transparent;
+  }
+
+  .shape-display {
+    padding: 4.5rem 1.5rem 2rem;
+    min-height: 55vw;
+  }
+
+  .shape-label   { top: 1rem; left: 1.5rem; }
+  .shape-label h2 { font-size: 1.6rem; }
+  .shape-counter { left: 1.5rem; bottom: 1rem; }
+
+  .shape-canvas  { width: min(220px, 55vw); height: min(220px, 55vw); }
+
+  .formula-panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 1.5rem;
+    gap: 0.85rem;
+    justify-content: flex-start;
+  }
+
+  .f-expr { font-size: 0.88rem; }
+  .f-desc { font-size: 0.75rem; }
+
+  /* Nav: left decorative panel is hidden; right panel fills the screen */
+  .nav-panel { grid-template-columns: 1fr; }
+  .nav-left  { display: none; }
+  .nav-right { padding: 1.5rem 2rem; }
+  .nav-list a { font-size: 1.5rem; }
+
+  /* Exercises */
+  .exercises-section { padding: 4rem 1rem 3rem; }
+  .ex-card  { padding: 1rem 1.25rem; }
+  .ex-input { width: 110px; }
+
+  /* Minimum 44 px touch targets for interactive controls */
+  .ex-btn, .nav-lang-btn, .nav-tab-btn { min-height: 44px; }
+  .back-top { width: 44px; height: 44px; }
+}
+
+/* ─── Small phones (≤ 480px) ───────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .hero h1 { font-size: clamp(3rem, 15vw, 5rem); }
+  .hero-sub { font-size: 0.9rem; }
+  .ngon-body { gap: 2rem; }
+  .exercises-section { padding: 3rem 0.75rem 2rem; }
+  .nav-right { padding: 1.25rem 1.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<!-- ─── Hamburger Button ──────────────────────────────────────────────────── -->
+<button class="nav-btn" id="navBtn" aria-label="Menu">
+  <span></span><span></span>
+</button>
+
+<!-- ─── Nav Overlay ───────────────────────────────────────────────────────── -->
+<div class="nav-overlay" id="navOverlay">
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <div class="nav-panel">
+    <!-- Left decorative pane -->
+    <div class="nav-left">
+      <div class="nav-left-inner">
+        <svg viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="70,8 132,44 132,96 70,132 8,96 8,44" stroke="#d4a853" stroke-width="1.5" fill="rgba(212,168,83,0.04)"/>
+          <polygon points="70,24 116,50 116,90 70,116 24,90 24,50" stroke="#d4a853" stroke-width="0.8" fill="none" opacity="0.4"/>
+          <polygon points="70,40 100,57 100,84 70,101 40,84 40,57" stroke="#d4a853" stroke-width="0.5" fill="none" opacity="0.2"/>
+          <circle cx="70" cy="70" r="4" fill="#d4a853" opacity="0.8"/>
+        </svg>
+        <span class="nav-left-title">Geometry Explorer</span>
+      </div>
+    </div>
+
+    <!-- Right nav pane -->
+    <div class="nav-right">
+      <button class="nav-close" id="navClose" aria-label="Close menu">✕</button>
+
+      <!-- Tabs -->
+      <div class="nav-tabs">
+        <button class="nav-tab-btn active" id="tabShapes" data-tab="shapes">Shapes</button>
+        <button class="nav-tab-btn" id="tabExercises" data-tab="exercises">Exercises</button>
+      </div>
+
+      <!-- Shapes list -->
+      <nav class="nav-list" id="navListShapes"></nav>
+      <!-- Exercises list -->
+      <nav class="nav-list hidden" id="navListExercises"></nav>
+
+      <div class="nav-lang">
+        <span class="nav-lang-label">Language</span>
+        <button class="nav-lang-btn active" id="btnEn" onclick="setLang('en')">EN</button>
+        <button class="nav-lang-btn" id="btnEs" onclick="setLang('es')">ES</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<!-- ─── Hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <p class="eyebrow">An Interactive Journey Through Space</p>
+  <h1>Geometry</h1>
+  <p class="hero-sub">From a single point to infinite sides — explore shapes, dimensions, and the mathematics that defines them.</p>
+  <div class="scroll-cta">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M12 5v14M5 12l7 7 7-7"/>
+    </svg>
+    Scroll to begin
+  </div>
+</section>
+
+<!-- ─── Shape Sections ────────────────────────────────────────────────────── -->
+<div id="shapes-container"></div>
+
+<!-- ─── N-gon Interactive ─────────────────────────────────────────────────── -->
+<section class="ngon-section">
+  <div class="ngon-head">
+    <h2>N — Gon</h2>
+    <p>The general regular polygon. Drag to choose any number of sides.</p>
+  </div>
+
+  <div class="ngon-body">
+    <div class="ngon-svg-wrap">
+      <svg id="ngonSvg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+        <path id="ngonPath" class="ngon-path"/>
+      </svg>
+    </div>
+
+    <div class="ngon-right">
+      <div class="n-display">
+        <span class="n-big" id="nDisplay">6</span>
+        <span class="n-label">sides</span>
+      </div>
+
+      <input type="range" id="nSlider" min="3" max="30" value="6" step="1">
+      <div class="range-labels"><span>3</span><span>30</span></div>
+
+      <div class="ngon-formula-card">
+        <div class="f-label">Perimeter</div>
+        <div class="f-expr">P = n · s</div>
+      </div>
+      <div class="ngon-formula-card">
+        <div class="f-label">Area</div>
+        <div class="f-expr">A = (n · s²) / (4 · tan(π/n))</div>
+      </div>
+      <div class="ngon-formula-card">
+        <div class="f-label">Interior Angle</div>
+        <div class="f-expr" id="ngonAngle">θ = 120.00°</div>
+      </div>
+      <div class="ngon-formula-card">
+        <div class="f-label">Sum of Interior Angles</div>
+        <div class="f-expr" id="ngonAngleSum">720°</div>
+      </div>
+      <div class="ngon-formula-card">
+        <div class="f-label">Circumradius</div>
+        <div class="f-expr">R = s / (2 · sin(π/n))</div>
+      </div>
+      <div class="ngon-formula-card">
+        <div class="f-label">Apothem</div>
+        <div class="f-expr">a = s / (2 · tan(π/n))</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Exercises ──────────────────────────────────────────────────────────── -->
+<section class="exercises-section" id="exercisesSection">
+  <div class="exercises-header">
+    <div class="exercises-header-text">
+      <h2 id="exTitle">Exercises</h2>
+      <p id="exSubtitle">Test your understanding. Enter a numeric answer and press Check.</p>
+    </div>
+    <div class="score-pill">
+      <span class="score-correct" id="scoreCorrect">0</span>
+      <span class="score-sep">/</span>
+      <span class="score-total" id="scoreTotal">0</span>
+      <span id="scoreLabel" style="color:var(--muted)">correct</span>
+    </div>
+  </div>
+  <div id="exercisesContainer"></div>
+</section>
+
+<footer>Geometry Explorer &mdash; An Interactive Educational Experience</footer>
+</main>
+
+<!-- ─── Back to Top ───────────────────────────────────────────────────────── -->
+<button class="back-top" id="backTop" aria-label="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 19V5M5 12l7-7 7 7"/>
+  </svg>
+</button>
+
+<script>
+// ─── Shape Data ──────────────────────────────────────────────────────────────
+const SHAPES = [
+  {
+    id: 'point',
+    name: 'Point',
+    dimension: '0-Dimensional',
+    sidesLabel: 'Dimension Zero',
+    formulas: [
+      { label: 'Definition', expr: 'P = (x, y)',
+        desc: 'A point has no length, width, or height. It is an exact location in space defined only by its coordinates.' },
+      { label: 'Distance Between Two Points', expr: 'd = √((x₂−x₁)² + (y₂−y₁)²)',
+        desc: 'The shortest straight-line distance between any two points, derived from the Pythagorean theorem.' },
+      { label: 'Midpoint Formula', expr: 'M = ((x₁+x₂)/2, (y₁+y₂)/2)',
+        desc: 'The point that lies exactly halfway between two given points.' },
+    ]
+  },
+  {
+    id: 'line',
+    name: 'Line Segment',
+    dimension: '1-Dimensional',
+    sidesLabel: '1 Dimension',
+    formulas: [
+      { label: 'Length', expr: 'L = √((x₂−x₁)² + (y₂−y₁)²)',
+        desc: 'The distance from one endpoint to the other — the defining measure of a line segment.' },
+      { label: 'Slope', expr: 'm = (y₂−y₁) / (x₂−x₁)',
+        desc: 'Rise over run. Describes the steepness and direction of the line segment.' },
+      { label: 'Midpoint', expr: 'M = ((x₁+x₂)/2, (y₁+y₂)/2)',
+        desc: 'The exact center of the line segment, equidistant from both endpoints.' },
+    ]
+  },
+  {
+    id: 'triangle',
+    name: 'Triangle',
+    dimension: '2-Dimensional',
+    sidesLabel: '3 Sides',
+    sides: 3,
+    formulas: [
+      { label: 'Perimeter', expr: 'P = a + b + c',
+        desc: 'Sum of all three side lengths. For an equilateral triangle: P = 3s.' },
+      { label: 'Area', expr: 'A = ½ · b · h',
+        desc: 'Half the base times the perpendicular height from that base to the opposite vertex.' },
+      { label: "Heron's Formula", expr: 'A = √(s(s−a)(s−b)(s−c))',
+        desc: 'Compute area from side lengths alone. Here s = (a+b+c)/2 is the semi-perimeter.' },
+      { label: 'Sum of Interior Angles', expr: 'α + β + γ = 180°',
+        desc: 'The three interior angles of any triangle — regardless of shape — always sum to exactly 180°.' },
+    ]
+  },
+  {
+    id: 'square',
+    name: 'Square',
+    dimension: '2-Dimensional',
+    sidesLabel: '4 Sides',
+    sides: 4,
+    formulas: [
+      { label: 'Perimeter', expr: 'P = 4s',
+        desc: 'Four equal sides, each of length s.' },
+      { label: 'Area', expr: 'A = s²',
+        desc: 'The side length squared — the origin of the word "square" as an algebraic operation.' },
+      { label: 'Diagonal', expr: 'd = s√2',
+        desc: 'Derived from the Pythagorean theorem: d² = s² + s², so d = s√2 ≈ 1.414s.' },
+      { label: 'Interior Angles', expr: 'θ = 90°  (each)',
+        desc: 'All four angles are right angles. Sum of all interior angles = 360°.' },
+    ]
+  },
+  {
+    id: 'pentagon',
+    name: 'Pentagon',
+    dimension: '2-Dimensional',
+    sidesLabel: '5 Sides',
+    sides: 5,
+    formulas: [
+      { label: 'Perimeter', expr: 'P = 5s',
+        desc: 'Five equal sides of length s.' },
+      { label: 'Area', expr: 'A = (s²/4)·√(25+10√5)',
+        desc: 'Exact area of a regular pentagon. Approximately A ≈ 1.720s².' },
+      { label: 'Interior Angle', expr: 'θ = 108°',
+        desc: 'Each interior angle of a regular pentagon. Sum of all interior angles = 540°.' },
+      { label: 'Apothem', expr: 'a = s / (2·tan(π/5))',
+        desc: 'Perpendicular distance from the center to any side. Approximately a ≈ 0.688s.' },
+    ]
+  },
+  {
+    id: 'hexagon',
+    name: 'Hexagon',
+    dimension: '2-Dimensional',
+    sidesLabel: '6 Sides',
+    sides: 6,
+    formulas: [
+      { label: 'Perimeter', expr: 'P = 6s',
+        desc: 'Six equal sides. Hexagons tile a plane perfectly — the basis of honeycomb structure.' },
+      { label: 'Area', expr: 'A = (3√3 / 2) · s²',
+        desc: 'Approximately A ≈ 2.598s². The most area-efficient shape for tiling a plane.' },
+      { label: 'Interior Angle', expr: 'θ = 120°',
+        desc: 'Each interior angle. Three hexagons meet at each vertex, summing to 360° — allowing perfect tiling.' },
+      { label: 'Circumradius', expr: 'R = s',
+        desc: 'A unique property: the circumradius of a regular hexagon equals its side length exactly.' },
+    ]
+  },
+  {
+    id: 'heptagon',
+    name: 'Heptagon',
+    dimension: '2-Dimensional',
+    sidesLabel: '7 Sides',
+    sides: 7,
+    formulas: [
+      { label: 'Perimeter', expr: 'P = 7s',
+        desc: 'Seven equal sides.' },
+      { label: 'Area', expr: 'A = (7s²/4) · cot(π/7)',
+        desc: 'Approximately A ≈ 3.634s². The heptagon cannot be constructed with compass and straightedge alone.' },
+      { label: 'Interior Angle', expr: 'θ ≈ 128.57°',
+        desc: 'Each interior angle = (7−2)·180°/7. Sum of all interior angles = 900°.' },
+      { label: 'Apothem', expr: 'a = s / (2·tan(π/7))',
+        desc: 'Approximately a ≈ 1.038s.' },
+    ]
+  },
+  {
+    id: 'octagon',
+    name: 'Octagon',
+    dimension: '2-Dimensional',
+    sidesLabel: '8 Sides',
+    sides: 8,
+    formulas: [
+      { label: 'Perimeter', expr: 'P = 8s',
+        desc: 'Eight equal sides. Recognized worldwide as the shape of a stop sign.' },
+      { label: 'Area', expr: 'A = 2(1 + √2) · s²',
+        desc: 'Exactly 2(1+√2)s² ≈ 4.828s². Can be visualized by cutting the four corners off a square.' },
+      { label: 'Interior Angle', expr: 'θ = 135°',
+        desc: 'Each interior angle. Sum of all interior angles = 1080°.' },
+      { label: 'Circumradius', expr: 'R = s / (2·sin(π/8))',
+        desc: 'Approximately R ≈ 1.307s. The octagon approximates a circle much more closely than earlier polygons.' },
+    ]
+  },
+];
+
+// ─── Palette ─────────────────────────────────────────────────────────────────
+const SHAPE_COLORS = [
+  '#1E0F75', // Point
+  '#1C1DAB', // Line Segment
+  '#3785D8', // Triangle
+  '#ADC6E5', // Square
+  '#BF8CE1', // Pentagon
+  '#E893C5', // Hexagon
+  '#EBB2C3', // Heptagon
+  '#CBD8E8', // Octagon
+];
+
+function hexToRgb(hex) {
+  return [
+    parseInt(hex.slice(1,3), 16),
+    parseInt(hex.slice(3,5), 16),
+    parseInt(hex.slice(5,7), 16),
+  ];
+}
+
+function rgba(hex, a) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ─── SVG Helpers ──────────────────────────────────────────────────────────────
+function regularPolygonPath(sideCount, cx, cy, circumradius) {
+  const vertices = [];
+  for (let i = 0; i < sideCount; i++) {
+    // Subtract π/2 so the first vertex points straight up
+    const angleRad = (2 * Math.PI * i / sideCount) - Math.PI / 2;
+    vertices.push([
+      cx + circumradius * Math.cos(angleRad),
+      cy + circumradius * Math.sin(angleRad),
+    ]);
+  }
+  return vertices.map((v, i) => `${i === 0 ? 'M' : 'L'}${v[0].toFixed(2)},${v[1].toFixed(2)}`).join(' ') + 'Z';
+}
+
+function regularPolygonPoints(sideCount, cx, cy, circumradius) {
+  const vertices = [];
+  for (let i = 0; i < sideCount; i++) {
+    const angleRad = (2 * Math.PI * i / sideCount) - Math.PI / 2;
+    vertices.push([
+      cx + circumradius * Math.cos(angleRad),
+      cy + circumradius * Math.sin(angleRad),
+    ]);
+  }
+  return vertices;
+}
+
+// ─── Build Sections ───────────────────────────────────────────────────────────
+const container = document.getElementById('shapes-container');
+const total = SHAPES.length;
+
+SHAPES.forEach((shape, idx) => {
+  const section = document.createElement('section');
+  section.className = 'shape-section';
+  section.dataset.idx = idx;
+
+  const currentColor = SHAPE_COLORS[idx];
+  const nextColor    = SHAPE_COLORS[idx + 1] ?? currentColor;
+  // Tint is applied to the sticky wrapper (not the section) so it stays
+  // inside the solid background and never shows through to adjacent sections.
+  const atmosphericTint =
+    `radial-gradient(ellipse 55% 40% at 25% 50%, ${rgba(currentColor, 0.07)} 0%, transparent 70%),` +
+    `linear-gradient(to bottom, ${rgba(currentColor, 0.045)} 0%, ${rgba(nextColor, 0.045)} 100%)`;
+
+  // Build SVG
+  let svgInner = '';
+  if (shape.id === 'point') {
+    svgInner = `
+      <circle class="point-dot" cx="200" cy="200" r="7"/>
+      <circle class="point-ring" cx="200" cy="200" r="32" stroke-width="1"/>
+      <circle class="point-ring" cx="200" cy="200" r="65" stroke-width="1"/>`;
+  } else if (shape.id === 'line') {
+    svgInner = `
+      <path class="shape-path" d="M60,200 L340,200"/>
+      <circle class="vertex-dot" cx="60" cy="200" r="4"/>
+      <circle class="vertex-dot" cx="340" cy="200" r="4"/>`;
+  } else {
+    const d = regularPolygonPath(shape.sides, 200, 200, 148);
+    const vertices = regularPolygonPoints(shape.sides, 200, 200, 148);
+    const vertDots = vertices.map(vertex =>
+      `<circle class="vertex-dot" cx="${vertex[0].toFixed(2)}" cy="${vertex[1].toFixed(2)}" r="4"/>`
+    ).join('');
+    svgInner = `
+      <path class="shape-fill" d="${d}"/>
+      <path class="shape-path" d="${d}"/>
+      ${vertDots}`;
+  }
+
+  const formulaCards = shape.formulas.map(f => `
+    <div class="formula-card">
+      <div class="f-label">${f.label}</div>
+      <div class="f-expr">${f.expr}</div>
+      <div class="f-desc">${f.desc}</div>
+    </div>`).join('');
+
+  section.innerHTML = `
+    <div class="sticky-wrapper">
+      <div class="shape-display">
+        <div class="shape-label">
+          <div class="shape-dimension">${shape.sidesLabel} · ${shape.dimension}</div>
+          <h2>${shape.name}</h2>
+        </div>
+        <div class="shape-canvas" data-id="${shape.id}">
+          <div class="shape-inner">
+            <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+              ${svgInner}
+            </svg>
+          </div>
+        </div>
+        <div class="shape-counter">${String(idx + 1).padStart(2,'0')} / ${String(total).padStart(2,'0')}</div>
+      </div>
+      <div class="formula-panel">${formulaCards}</div>
+    </div>`;
+
+  container.appendChild(section);
+
+  // Apply the tint to the sticky wrapper now that it exists in the DOM
+  section.querySelector('.sticky-wrapper').style.backgroundImage = atmosphericTint;
+
+  // Set up stroke-dashoffset after paint
+  if (shape.id !== 'point') {
+    requestAnimationFrame(() => {
+      const path = section.querySelector('.shape-path');
+      if (path && path.getTotalLength) {
+        const len = Math.ceil(path.getTotalLength());
+        path.style.strokeDasharray = len;
+        path.style.strokeDashoffset = len;
+      }
+    });
+  }
+});
+
+// ─── Scroll: Shape Draw + Formula Reveals ─────────────────────────────────────
+function onScroll() {
+  document.querySelectorAll('.shape-section').forEach(shapeSection => {
+    const rect             = shapeSection.getBoundingClientRect();
+    const viewportHeight   = window.innerHeight;
+
+    if (rect.top < viewportHeight * 0.72 && rect.bottom > 0) {
+      shapeSection.classList.add('in-view');
+
+      // On desktop the section is 260vh tall, giving a 0→1 scroll budget for
+      // revealing formula cards. On mobile sections are natural height so
+      // scrollable ≤ 0 and progress clamps to 1 (all cards shown at once).
+      const scrollablePx = rect.height - viewportHeight;
+      const progress     = scrollablePx > 0
+        ? Math.max(0, Math.min(1, -rect.top / scrollablePx))
+        : 1;
+
+      revealFormulas(shapeSection, progress);
+    }
+  });
+}
+
+function revealFormulas(shapeSection, progress) {
+  const cards = shapeSection.querySelectorAll('.formula-card');
+  cards.forEach((card, cardIndex) => {
+    // Space thresholds evenly across the scroll range, e.g. 0.25, 0.5, 0.75 for 3 cards
+    const revealThreshold = (cardIndex + 1) / (cards.length + 1);
+    card.classList.toggle('visible', progress >= revealThreshold);
+  });
+}
+
+window.addEventListener('scroll', onScroll, { passive: true });
+setTimeout(onScroll, 120); // initial pass
+
+// ─── Mouse Parallax ───────────────────────────────────────────────────────────
+// Touch devices never fire mousemove, so parallax is automatically disabled on mobile.
+let parallaxRaf  = null;
+let mouseX = window.innerWidth  / 2;
+let mouseY = window.innerHeight / 2;
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  if (!parallaxRaf) parallaxRaf = requestAnimationFrame(applyParallax);
+});
+
+function applyParallax() {
+  parallaxRaf = null;
+  const centerX = window.innerWidth  / 2;
+  const centerY = window.innerHeight / 2;
+  // Normalize cursor offset to the -1 → 1 range
+  const normalizedX = (mouseX - centerX) / centerX;
+  const normalizedY = (mouseY - centerY) / centerY;
+  // Max tilt of 14 degrees; invert Y so moving up tilts the shape toward the viewer
+  const tiltX = -normalizedY * 14;
+  const tiltY =  normalizedX * 14;
+
+  document.querySelectorAll('.shape-section.in-view .shape-inner').forEach(shapeInnerEl => {
+    const parentSection = shapeInnerEl.closest('.shape-section');
+    const sectionBounds = parentSection.getBoundingClientRect();
+    if (sectionBounds.top < window.innerHeight && sectionBounds.bottom > 0) {
+      shapeInnerEl.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    }
+  });
+}
+
+// ─── N-gon Slider ─────────────────────────────────────────────────────────────
+const slider   = document.getElementById('nSlider');
+const nDisplay = document.getElementById('nDisplay');
+const ngonPath = document.getElementById('ngonPath');
+const ngonAngle     = document.getElementById('ngonAngle');
+const ngonAngleSum  = document.getElementById('ngonAngleSum');
+
+function updateNgon(n) {
+  nDisplay.textContent = n;
+  ngonPath.setAttribute('d', regularPolygonPath(n, 150, 150, 125));
+  const angle    = ((n - 2) * 180 / n).toFixed(2);
+  const angleSum = (n - 2) * 180;
+  ngonAngle.textContent    = `θ = (${n}−2)·180° / ${n} = ${angle}°`;
+  ngonAngleSum.textContent = `(${n}−2) × 180° = ${angleSum}°`;
+}
+
+slider.addEventListener('input', () => updateNgon(+slider.value));
+updateNgon(6);
+
+// ─── Back to Top ─────────────────────────────────────────────────────────────
+const backTop  = document.getElementById('backTop');
+const ngonSec  = document.querySelector('.ngon-section');
+
+function updateBackTop() {
+  const ngonTop = ngonSec?.getBoundingClientRect().top ?? Infinity;
+  const exTop   = document.querySelector('.exercises-section')?.getBoundingClientRect().top ?? Infinity;
+  backTop.classList.toggle('visible', Math.min(ngonTop, exTop) < window.innerHeight * 0.85);
+}
+
+window.addEventListener('scroll', updateBackTop, { passive: true });
+backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+// ─── Exercises ────────────────────────────────────────────────────────────────
+const EXERCISES = {
+  en: [
+    {
+      shapeId: 'point', shapeName: 'Point', color: '#1E0F75',
+      questions: [
+        { q: 'Find the distance between P(0, 0) and Q(3, 4).', answer: 5, hint: 'Use d = √((x₂−x₁)² + (y₂−y₁)²)' },
+        { q: 'Find the distance between A(1, 2) and B(4, 6).', answer: 5, hint: 'd = √((4−1)² + (6−2)²) = √(9+16)' },
+        { q: 'What is the x-coordinate of the midpoint between (2, 8) and (6, 4)?', answer: 4, hint: 'Mₓ = (2 + 6) / 2' },
+      ]
+    },
+    {
+      shapeId: 'line', shapeName: 'Line Segment', color: '#1C1DAB',
+      questions: [
+        { q: 'Find the length of the segment from (0, 0) to (6, 8).', answer: 10, hint: 'L = √(6² + 8²)' },
+        { q: 'Find the slope of the line through (1, 2) and (3, 8).', answer: 3, hint: 'm = (8−2) / (3−1)' },
+        { q: 'What is the y-coordinate of the midpoint between (4, 2) and (4, 10)?', answer: 6, hint: 'Mᵧ = (2 + 10) / 2' },
+      ]
+    },
+    {
+      shapeId: 'triangle', shapeName: 'Triangle', color: '#3785D8',
+      questions: [
+        { q: 'A triangle has sides 5, 12, and 13. What is its perimeter?', answer: 30, hint: 'P = 5 + 12 + 13' },
+        { q: 'A triangle has base 8 and height 5. What is its area?', answer: 20, hint: 'A = ½ × 8 × 5' },
+        { q: 'Two angles of a triangle are 60° and 75°. What is the third angle?', answer: 45, hint: 'Angles must sum to 180°' },
+      ]
+    },
+    {
+      shapeId: 'square', shapeName: 'Square', color: '#ADC6E5',
+      questions: [
+        { q: 'A square has side 9. What is its area?', answer: 81, hint: 'A = s²' },
+        { q: 'A square has area 144. What is its side length?', answer: 12, hint: 's = √144' },
+        { q: 'A square has side 10. What is its diagonal? (round to 2 decimals)', answer: 14.14, hint: 'd = 10 × √2 ≈ 14.14' },
+      ]
+    },
+    {
+      shapeId: 'pentagon', shapeName: 'Pentagon', color: '#BF8CE1',
+      questions: [
+        { q: 'A regular pentagon has side 7. What is its perimeter?', answer: 35, hint: 'P = 5 × s' },
+        { q: 'What is each interior angle of a regular pentagon, in degrees?', answer: 108, hint: 'θ = (5−2) × 180 / 5' },
+        { q: 'What is the sum of all interior angles of a pentagon, in degrees?', answer: 540, hint: 'Sum = (n−2) × 180' },
+      ]
+    },
+    {
+      shapeId: 'hexagon', shapeName: 'Hexagon', color: '#E893C5',
+      questions: [
+        { q: 'A regular hexagon has side 5. What is its perimeter?', answer: 30, hint: 'P = 6 × s' },
+        { q: 'What is each interior angle of a regular hexagon, in degrees?', answer: 120, hint: 'θ = (6−2) × 180 / 6' },
+        { q: 'A regular hexagon has side 4. What is its circumradius?', answer: 4, hint: 'Unique property: R = s for a hexagon' },
+      ]
+    },
+    {
+      shapeId: 'heptagon', shapeName: 'Heptagon', color: '#EBB2C3',
+      questions: [
+        { q: 'A regular heptagon has side 4. What is its perimeter?', answer: 28, hint: 'P = 7 × s' },
+        { q: 'What is each interior angle of a regular heptagon? (round to 2 decimals)', answer: 128.57, hint: 'θ = (7−2) × 180 / 7' },
+        { q: 'What is the sum of all interior angles of a heptagon, in degrees?', answer: 900, hint: 'Sum = (n−2) × 180' },
+      ]
+    },
+    {
+      shapeId: 'octagon', shapeName: 'Octagon', color: '#CBD8E8',
+      questions: [
+        { q: 'A regular octagon has side 6. What is its perimeter?', answer: 48, hint: 'P = 8 × s' },
+        { q: 'What is each interior angle of a regular octagon, in degrees?', answer: 135, hint: 'θ = (8−2) × 180 / 8' },
+        { q: 'What is the sum of all interior angles of an octagon, in degrees?', answer: 1080, hint: 'Sum = (n−2) × 180' },
+      ]
+    },
+    {
+      shapeId: 'ngon', shapeName: 'N-Gon', color: '#d4a853',
+      questions: [
+        { q: 'What is each interior angle of a regular 12-sided polygon, in degrees?', answer: 150, hint: 'θ = (12−2) × 180 / 12' },
+        { q: 'What is the sum of interior angles of a 15-sided polygon, in degrees?', answer: 2340, hint: 'Sum = (n−2) × 180' },
+        { q: 'A regular polygon has interior angles of 144°. How many sides does it have?', answer: 10, hint: 'n = 360 / (180 − 144)' },
+      ]
+    },
+  ],
+  es: [
+    {
+      shapeId: 'point', shapeName: 'Punto', color: '#1E0F75',
+      questions: [
+        { q: 'Encuentra la distancia entre P(0, 0) y Q(3, 4).', answer: 5, hint: 'Usa d = √((x₂−x₁)² + (y₂−y₁)²)' },
+        { q: 'Encuentra la distancia entre A(1, 2) y B(4, 6).', answer: 5, hint: 'd = √((4−1)² + (6−2)²) = √(9+16)' },
+        { q: '¿Cuál es la coordenada x del punto medio entre (2, 8) y (6, 4)?', answer: 4, hint: 'Mₓ = (2 + 6) / 2' },
+      ]
+    },
+    {
+      shapeId: 'line', shapeName: 'Segmento', color: '#1C1DAB',
+      questions: [
+        { q: 'Encuentra la longitud del segmento de (0, 0) a (6, 8).', answer: 10, hint: 'L = √(6² + 8²)' },
+        { q: 'Encuentra la pendiente de la recta que pasa por (1, 2) y (3, 8).', answer: 3, hint: 'm = (8−2) / (3−1)' },
+        { q: '¿Cuál es la coordenada y del punto medio entre (4, 2) y (4, 10)?', answer: 6, hint: 'Mᵧ = (2 + 10) / 2' },
+      ]
+    },
+    {
+      shapeId: 'triangle', shapeName: 'Triángulo', color: '#3785D8',
+      questions: [
+        { q: 'Un triángulo tiene lados 5, 12 y 13. ¿Cuál es su perímetro?', answer: 30, hint: 'P = 5 + 12 + 13' },
+        { q: 'Un triángulo tiene base 8 y altura 5. ¿Cuál es su área?', answer: 20, hint: 'A = ½ × 8 × 5' },
+        { q: 'Dos ángulos de un triángulo miden 60° y 75°. ¿Cuánto mide el tercer ángulo?', answer: 45, hint: 'Los ángulos suman 180°' },
+      ]
+    },
+    {
+      shapeId: 'square', shapeName: 'Cuadrado', color: '#ADC6E5',
+      questions: [
+        { q: 'Un cuadrado tiene lado 9. ¿Cuál es su área?', answer: 81, hint: 'A = s²' },
+        { q: 'Un cuadrado tiene área 144. ¿Cuánto mide su lado?', answer: 12, hint: 's = √144' },
+        { q: 'Un cuadrado tiene lado 10. ¿Cuánto mide su diagonal? (redondea a 2 decimales)', answer: 14.14, hint: 'd = 10 × √2 ≈ 14.14' },
+      ]
+    },
+    {
+      shapeId: 'pentagon', shapeName: 'Pentágono', color: '#BF8CE1',
+      questions: [
+        { q: 'Un pentágono regular tiene lado 7. ¿Cuál es su perímetro?', answer: 35, hint: 'P = 5 × l' },
+        { q: '¿Cuánto mide cada ángulo interior de un pentágono regular, en grados?', answer: 108, hint: 'θ = (5−2) × 180 / 5' },
+        { q: '¿Cuál es la suma de los ángulos interiores de un pentágono, en grados?', answer: 540, hint: 'Suma = (n−2) × 180' },
+      ]
+    },
+    {
+      shapeId: 'hexagon', shapeName: 'Hexágono', color: '#E893C5',
+      questions: [
+        { q: 'Un hexágono regular tiene lado 5. ¿Cuál es su perímetro?', answer: 30, hint: 'P = 6 × l' },
+        { q: '¿Cuánto mide cada ángulo interior de un hexágono regular, en grados?', answer: 120, hint: 'θ = (6−2) × 180 / 6' },
+        { q: 'Un hexágono regular tiene lado 4. ¿Cuál es su circunradio?', answer: 4, hint: 'Propiedad única: R = l en el hexágono' },
+      ]
+    },
+    {
+      shapeId: 'heptagon', shapeName: 'Heptágono', color: '#EBB2C3',
+      questions: [
+        { q: 'Un heptágono regular tiene lado 4. ¿Cuál es su perímetro?', answer: 28, hint: 'P = 7 × l' },
+        { q: '¿Cuánto mide cada ángulo interior de un heptágono regular? (redondea a 2 decimales)', answer: 128.57, hint: 'θ = (7−2) × 180 / 7' },
+        { q: '¿Cuál es la suma de los ángulos interiores de un heptágono, en grados?', answer: 900, hint: 'Suma = (n−2) × 180' },
+      ]
+    },
+    {
+      shapeId: 'octagon', shapeName: 'Octágono', color: '#CBD8E8',
+      questions: [
+        { q: 'Un octágono regular tiene lado 6. ¿Cuál es su perímetro?', answer: 48, hint: 'P = 8 × l' },
+        { q: '¿Cuánto mide cada ángulo interior de un octágono regular, en grados?', answer: 135, hint: 'θ = (8−2) × 180 / 8' },
+        { q: '¿Cuál es la suma de los ángulos interiores de un octágono, en grados?', answer: 1080, hint: 'Suma = (n−2) × 180' },
+      ]
+    },
+    {
+      shapeId: 'ngon', shapeName: 'Polígono N', color: '#d4a853',
+      questions: [
+        { q: '¿Cuánto mide cada ángulo interior de un polígono regular de 12 lados, en grados?', answer: 150, hint: 'θ = (12−2) × 180 / 12' },
+        { q: '¿Cuál es la suma de los ángulos interiores de un polígono de 15 lados, en grados?', answer: 2340, hint: 'Suma = (n−2) × 180' },
+        { q: 'Un polígono regular tiene ángulos interiores de 144°. ¿Cuántos lados tiene?', answer: 10, hint: 'n = 360 / (180 − 144)' },
+      ]
+    },
+  ],
+};
+
+const EX_UI = {
+  en: {
+    title: 'Exercises', subtitle: 'Test your understanding. Enter a numeric answer and press Check.',
+    scoreLabel: 'correct', check: 'Check', correct: '✓ Correct!',
+    wrong: '✗ Try again', hint: 'Hint', showHint: 'Show hint',
+  },
+  es: {
+    title: 'Ejercicios', subtitle: 'Pon a prueba tu comprensión. Ingresa una respuesta numérica y presiona Verificar.',
+    scoreLabel: 'correctas', check: 'Verificar', correct: '✓ ¡Correcto!',
+    wrong: '✗ Inténtalo de nuevo', hint: 'Pista', showHint: 'Mostrar pista',
+  },
+};
+
+// Score state — persists across language switches
+const answered = new Map(); // id → true/false
+
+function parseAnswer(str) {
+  return parseFloat(str.replace(',', '.').trim());
+}
+
+function isClose(a, b) {
+  return Math.abs(a - b) <= 0.015;
+}
+
+function renderExercises(lang) {
+  const ui   = EX_UI[lang];
+  const data = EXERCISES[lang];
+  const container = document.getElementById('exercisesContainer');
+
+  // Update header text
+  document.getElementById('exTitle').textContent    = ui.title;
+  document.getElementById('exSubtitle').textContent = ui.subtitle;
+  document.getElementById('scoreLabel').textContent = ui.scoreLabel;
+
+  container.innerHTML = '';
+  let runningIndex = 0;
+
+  data.forEach(group => {
+    const groupEl    = document.createElement('div');
+    groupEl.className = 'ex-group';
+    groupEl.id        = 'ex-group-' + group.shapeId;
+
+    groupEl.innerHTML = `
+      <div class="ex-group-header">
+        <div class="ex-shape-dot" style="background:${group.color}"></div>
+        <span class="ex-group-title">${group.shapeName}</span>
+      </div>`;
+
+    group.questions.forEach((question, questionIndex) => {
+      const exerciseId = `${group.shapeId}-${questionIndex}`;
+      runningIndex++;
+      const wasCorrect = answered.get(exerciseId) === true;
+
+      const card = document.createElement('div');
+      card.className    = `ex-card${wasCorrect ? ' correct' : ''}`;
+      card.dataset.id   = exerciseId;
+
+      card.innerHTML = `
+        <div class="ex-num">Ex. ${runningIndex}</div>
+        <div class="ex-question">${question.q}</div>
+        <div class="ex-row">
+          <input class="ex-input" type="text" placeholder="?"
+            ${wasCorrect ? `disabled value="${question.answer}"` : ''}>
+          <button class="ex-btn" ${wasCorrect ? 'disabled' : ''}>${ui.check}</button>
+          <span class="ex-feedback ${wasCorrect ? 'ok' : ''}">${wasCorrect ? ui.correct : ''}</span>
+        </div>
+        <div class="ex-hint">${ui.hint}: ${question.hint}</div>`;
+
+      const inputEl    = card.querySelector('.ex-input');
+      const checkBtn   = card.querySelector('.ex-btn');
+      const feedbackEl = card.querySelector('.ex-feedback');
+      const hintEl     = card.querySelector('.ex-hint');
+      let wrongAttempts = 0;
+
+      checkBtn.addEventListener('click', () => {
+        const parsedValue = parseAnswer(inputEl.value);
+        if (isNaN(parsedValue)) {
+          feedbackEl.textContent = '?';
+          feedbackEl.className   = 'ex-feedback err';
+          return;
+        }
+
+        if (isClose(parsedValue, question.answer)) {
+          card.classList.add('correct');
+          card.classList.remove('wrong');
+          feedbackEl.textContent = ui.correct;
+          feedbackEl.className   = 'ex-feedback ok';
+          checkBtn.disabled      = true;
+          inputEl.disabled       = true;
+          if (!answered.get(exerciseId)) {
+            answered.set(exerciseId, true);
+            updateScore();
+          }
+        } else {
+          card.classList.add('wrong');
+          card.classList.remove('correct');
+          feedbackEl.textContent = ui.wrong;
+          feedbackEl.className   = 'ex-feedback err';
+          answered.set(exerciseId, false);
+          wrongAttempts++;
+          // Reveal the hint after two failed attempts
+          if (wrongAttempts >= 2) hintEl.classList.add('show');
+        }
+      });
+
+      inputEl.addEventListener('keydown', evt => { if (evt.key === 'Enter') checkBtn.click(); });
+
+      groupEl.appendChild(card);
+    });
+
+    container.appendChild(groupEl);
+  });
+
+  updateScore();
+}
+
+function updateScore() {
+  const correct = [...answered.values()].filter(Boolean).length;
+  const total   = [...answered.values()].length;
+  document.getElementById('scoreCorrect').textContent = correct;
+  document.getElementById('scoreTotal').textContent   = total;
+}
+
+// Initial render
+renderExercises('en');
+
+// ─── Nav Menu ────────────────────────────────────────────────────────────────
+const navBtn     = document.getElementById('navBtn');
+const navOverlay = document.getElementById('navOverlay');
+const navBackdrop= document.getElementById('navBackdrop');
+const navClose   = document.getElementById('navClose');
+// navList split into navListShapes / navListExercises (see buildNavLinks)
+
+// Shape names for each section (EN, updated by setLang)
+const NAV_NAMES = {
+  en: {
+    shapes:    ['Point', 'Line Segment', 'Triangle', 'Square', 'Pentagon', 'Hexagon', 'Heptagon', 'Octagon', 'N-Gon'],
+    exercises: ['Point', 'Line Segment', 'Triangle', 'Square', 'Pentagon', 'Hexagon', 'Heptagon', 'Octagon', 'N-Gon'],
+    tabs:      ['Shapes', 'Exercises'],
+  },
+  es: {
+    shapes:    ['Punto', 'Segmento', 'Triángulo', 'Cuadrado', 'Pentágono', 'Hexágono', 'Heptágono', 'Octágono', 'Polígono N'],
+    exercises: ['Punto', 'Segmento', 'Triángulo', 'Cuadrado', 'Pentágono', 'Hexágono', 'Heptágono', 'Octágono', 'Polígono N'],
+    tabs:      ['Figuras', 'Ejercicios'],
+  },
+};
+
+const EXERCISE_IDS = ['point','line','triangle','square','pentagon','hexagon','heptagon','octagon','ngon'];
+
+// Build both nav lists
+function buildNavLinks(lang) {
+  const n = NAV_NAMES[lang];
+
+  // Update tab labels
+  document.getElementById('tabShapes').textContent    = n.tabs[0];
+  document.getElementById('tabExercises').textContent = n.tabs[1];
+
+  // ── Shapes list ──
+  const shapesListEl = document.getElementById('navListShapes');
+  shapesListEl.innerHTML = '';
+  n.shapes.forEach((shapeName, shapeIndex) => {
+    const navLink = document.createElement('a');
+    navLink.href      = '#';
+    navLink.textContent = shapeName;
+    navLink.dataset.navIdx = shapeIndex;
+    navLink.addEventListener('click', evt => {
+      evt.preventDefault();
+      closeNav();
+      // Wait for the panel slide-out animation before jumping
+      setTimeout(() => {
+        const scrollTarget = shapeIndex < 8
+          ? document.querySelector(`.shape-section[data-idx="${shapeIndex}"]`)
+          : document.querySelector('.ngon-section');
+        scrollTarget?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    });
+    shapesListEl.appendChild(navLink);
+  });
+
+  // ── Exercises list ──
+  const exercisesListEl = document.getElementById('navListExercises');
+  exercisesListEl.innerHTML = '';
+  n.exercises.forEach((shapeName, shapeIndex) => {
+    const navLink = document.createElement('a');
+    navLink.href        = '#';
+    navLink.textContent = shapeName;
+    navLink.addEventListener('click', evt => {
+      evt.preventDefault();
+      closeNav();
+      setTimeout(() => {
+        const groupId      = EXERCISE_IDS[shapeIndex];
+        const scrollTarget = document.getElementById('ex-group-' + groupId)
+                          ?? document.querySelector('.exercises-section');
+        scrollTarget?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    });
+    exercisesListEl.appendChild(navLink);
+  });
+}
+
+// ── Tab switching ──
+let activeTab = 'shapes';
+document.getElementById('tabShapes').addEventListener('click',    () => switchTab('shapes'));
+document.getElementById('tabExercises').addEventListener('click', () => switchTab('exercises'));
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabShapes').classList.toggle('active',    tab === 'shapes');
+  document.getElementById('tabExercises').classList.toggle('active', tab === 'exercises');
+  document.getElementById('navListShapes').classList.toggle('hidden',    tab !== 'shapes');
+  document.getElementById('navListExercises').classList.toggle('hidden', tab !== 'exercises');
+}
+
+function updateActiveNavLink() {
+  const navLinks     = document.querySelectorAll('#navListShapes a');
+  const halfViewport = window.innerHeight * 0.5;
+  let activeIndex    = 0;
+
+  document.querySelectorAll('.shape-section').forEach((shapeSection, i) => {
+    if (shapeSection.getBoundingClientRect().top < halfViewport) activeIndex = i;
+  });
+
+  const ngonSection = document.querySelector('.ngon-section');
+  if (ngonSection && ngonSection.getBoundingClientRect().top < halfViewport) activeIndex = 8;
+
+  navLinks.forEach((link, i) => link.classList.toggle('active-shape', i === activeIndex));
+}
+
+function openNav() {
+  navOverlay.classList.add('open');
+  navBtn.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  updateActiveNavLink();
+}
+
+
+function closeNav() {
+  navOverlay.classList.remove('open');
+  navBtn.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+navBtn.addEventListener('click', () => navOverlay.classList.contains('open') ? closeNav() : openNav());
+navClose.addEventListener('click', closeNav);
+navBackdrop.addEventListener('click', closeNav);
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
+
+buildNavLinks('en');
+
+// ─── Language Toggle ──────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    // Hero
+    eyebrow: 'An Interactive Journey Through Space',
+    heroSub: 'From a single point to infinite sides — explore shapes, dimensions, and the mathematics that defines them.',
+    scrollCta: 'Scroll to begin',
+    // N-gon section
+    ngonTitle: 'N — Gon',
+    ngonSub: 'The general regular polygon. Drag to choose any number of sides.',
+    nLabel: 'sides',
+    // N-gon formula labels
+    ngonLabels: ['Perimeter', 'Area', 'Interior Angle', 'Sum of Interior Angles', 'Circumradius', 'Apothem'],
+    // Footer
+    footer: 'Geometry Explorer — An Interactive Educational Experience',
+    // Shape names & metadata
+    shapes: [
+      { name: 'Point',        dimension: '0-Dimensional', sidesLabel: 'Dimension Zero' },
+      { name: 'Line Segment', dimension: '1-Dimensional', sidesLabel: '1 Dimension' },
+      { name: 'Triangle',     dimension: '2-Dimensional', sidesLabel: '3 Sides' },
+      { name: 'Square',       dimension: '2-Dimensional', sidesLabel: '4 Sides' },
+      { name: 'Pentagon',     dimension: '2-Dimensional', sidesLabel: '5 Sides' },
+      { name: 'Hexagon',      dimension: '2-Dimensional', sidesLabel: '6 Sides' },
+      { name: 'Heptagon',     dimension: '2-Dimensional', sidesLabel: '7 Sides' },
+      { name: 'Octagon',      dimension: '2-Dimensional', sidesLabel: '8 Sides' },
+    ],
+    // Formula labels & descriptions per shape (same order as SHAPES array)
+    formulas: [
+      // Point
+      [
+        { label: 'Definition',                  desc: 'A point has no length, width, or height. It is an exact location in space defined only by its coordinates.' },
+        { label: 'Distance Between Two Points', desc: 'The shortest straight-line distance between any two points, derived from the Pythagorean theorem.' },
+        { label: 'Midpoint Formula',            desc: 'The point that lies exactly halfway between two given points.' },
+      ],
+      // Line
+      [
+        { label: 'Length',   desc: 'The distance from one endpoint to the other — the defining measure of a line segment.' },
+        { label: 'Slope',    desc: 'Rise over run. Describes the steepness and direction of the line segment.' },
+        { label: 'Midpoint', desc: 'The exact center of the line segment, equidistant from both endpoints.' },
+      ],
+      // Triangle
+      [
+        { label: 'Perimeter',              desc: 'Sum of all three side lengths. For an equilateral triangle: P = 3s.' },
+        { label: 'Area',                   desc: 'Half the base times the perpendicular height from that base to the opposite vertex.' },
+        { label: "Heron's Formula",        desc: 'Compute area from side lengths alone. Here s = (a+b+c)/2 is the semi-perimeter.' },
+        { label: 'Sum of Interior Angles', desc: 'The three interior angles of any triangle — regardless of shape — always sum to exactly 180°.' },
+      ],
+      // Square
+      [
+        { label: 'Perimeter',        desc: 'Four equal sides, each of length s.' },
+        { label: 'Area',             desc: 'The side length squared — the origin of the word "square" as an algebraic operation.' },
+        { label: 'Diagonal',         desc: 'Derived from the Pythagorean theorem: d² = s² + s², so d = s√2 ≈ 1.414s.' },
+        { label: 'Interior Angles',  desc: 'All four angles are right angles. Sum of all interior angles = 360°.' },
+      ],
+      // Pentagon
+      [
+        { label: 'Perimeter',        desc: 'Five equal sides of length s.' },
+        { label: 'Area',             desc: 'Exact area of a regular pentagon. Approximately A ≈ 1.720s².' },
+        { label: 'Interior Angle',   desc: 'Each interior angle of a regular pentagon. Sum of all interior angles = 540°.' },
+        { label: 'Apothem',          desc: 'Perpendicular distance from the center to any side. Approximately a ≈ 0.688s.' },
+      ],
+      // Hexagon
+      [
+        { label: 'Perimeter',        desc: 'Six equal sides. Hexagons tile a plane perfectly — the basis of honeycomb structure.' },
+        { label: 'Area',             desc: 'Approximately A ≈ 2.598s². The most area-efficient shape for tiling a plane.' },
+        { label: 'Interior Angle',   desc: 'Each interior angle. Three hexagons meet at each vertex, summing to 360° — allowing perfect tiling.' },
+        { label: 'Circumradius',     desc: 'A unique property: the circumradius of a regular hexagon equals its side length exactly.' },
+      ],
+      // Heptagon
+      [
+        { label: 'Perimeter',        desc: 'Seven equal sides.' },
+        { label: 'Area',             desc: 'Approximately A ≈ 3.634s². The heptagon cannot be constructed with compass and straightedge alone.' },
+        { label: 'Interior Angle',   desc: 'Each interior angle = (7−2)·180°/7. Sum of all interior angles = 900°.' },
+        { label: 'Apothem',          desc: 'Approximately a ≈ 1.038s.' },
+      ],
+      // Octagon
+      [
+        { label: 'Perimeter',        desc: 'Eight equal sides. Recognized worldwide as the shape of a stop sign.' },
+        { label: 'Area',             desc: 'Exactly 2(1+√2)s² ≈ 4.828s². Can be visualized by cutting the four corners off a square.' },
+        { label: 'Interior Angle',   desc: 'Each interior angle. Sum of all interior angles = 1080°.' },
+        { label: 'Circumradius',     desc: 'Approximately R ≈ 1.307s. The octagon approximates a circle much more closely than earlier polygons.' },
+      ],
+    ],
+  },
+
+  es: {
+    eyebrow: 'Un Viaje Interactivo por el Espacio',
+    heroSub: 'Desde un punto hasta infinitos lados — explora figuras, dimensiones y la matemática que las define.',
+    scrollCta: 'Desplázate para comenzar',
+    ngonTitle: 'Polígono N',
+    ngonSub: 'El polígono regular general. Arrastra para elegir el número de lados.',
+    nLabel: 'lados',
+    ngonLabels: ['Perímetro', 'Área', 'Ángulo Interior', 'Suma de Ángulos Interiores', 'Circunradio', 'Apotema'],
+    footer: 'Explorador de Geometría — Una Experiencia Educativa Interactiva',
+    shapes: [
+      { name: 'Punto',            dimension: '0-Dimensional',  sidesLabel: 'Dimensión Cero' },
+      { name: 'Segmento',         dimension: '1-Dimensional',  sidesLabel: '1 Dimensión' },
+      { name: 'Triángulo',        dimension: '2-Dimensional',  sidesLabel: '3 Lados' },
+      { name: 'Cuadrado',         dimension: '2-Dimensional',  sidesLabel: '4 Lados' },
+      { name: 'Pentágono',        dimension: '2-Dimensional',  sidesLabel: '5 Lados' },
+      { name: 'Hexágono',         dimension: '2-Dimensional',  sidesLabel: '6 Lados' },
+      { name: 'Heptágono',        dimension: '2-Dimensional',  sidesLabel: '7 Lados' },
+      { name: 'Octágono',         dimension: '2-Dimensional',  sidesLabel: '8 Lados' },
+    ],
+    formulas: [
+      // Punto
+      [
+        { label: 'Definición',                    desc: 'Un punto no tiene longitud, ancho ni altura. Es una ubicación exacta en el espacio definida únicamente por sus coordenadas.' },
+        { label: 'Distancia Entre Dos Puntos',    desc: 'La distancia en línea recta más corta entre dos puntos, derivada del teorema de Pitágoras.' },
+        { label: 'Fórmula del Punto Medio',       desc: 'El punto que se encuentra exactamente a la mitad entre dos puntos dados.' },
+      ],
+      // Segmento
+      [
+        { label: 'Longitud',       desc: 'La distancia de un extremo al otro — la medida esencial de un segmento.' },
+        { label: 'Pendiente',      desc: 'Cambio vertical entre cambio horizontal. Describe la inclinación y dirección del segmento.' },
+        { label: 'Punto Medio',    desc: 'El centro exacto del segmento, equidistante de ambos extremos.' },
+      ],
+      // Triángulo
+      [
+        { label: 'Perímetro',               desc: 'Suma de los tres lados. Para un triángulo equilátero: P = 3s.' },
+        { label: 'Área',                    desc: 'La mitad de la base por la altura perpendicular desde esa base hasta el vértice opuesto.' },
+        { label: 'Fórmula de Herón',        desc: 'Calcula el área solo con los lados. Aquí s = (a+b+c)/2 es el semiperímetro.' },
+        { label: 'Suma de Ángulos Interiores', desc: 'Los tres ángulos interiores de cualquier triángulo siempre suman exactamente 180°.' },
+      ],
+      // Cuadrado
+      [
+        { label: 'Perímetro',         desc: 'Cuatro lados iguales, cada uno de longitud s.' },
+        { label: 'Área',              desc: 'El lado al cuadrado — origen de la palabra "cuadrado" como operación algebraica.' },
+        { label: 'Diagonal',          desc: 'Derivada del teorema de Pitágoras: d² = s² + s², por lo tanto d = s√2 ≈ 1.414s.' },
+        { label: 'Ángulos Interiores',desc: 'Los cuatro ángulos son rectos. Suma de ángulos interiores = 360°.' },
+      ],
+      // Pentágono
+      [
+        { label: 'Perímetro',       desc: 'Cinco lados iguales de longitud s.' },
+        { label: 'Área',            desc: 'Área exacta de un pentágono regular. Aproximadamente A ≈ 1.720s².' },
+        { label: 'Ángulo Interior', desc: 'Cada ángulo interior del pentágono regular. Suma de ángulos = 540°.' },
+        { label: 'Apotema',         desc: 'Distancia perpendicular del centro a cualquier lado. Aproximadamente a ≈ 0.688s.' },
+      ],
+      // Hexágono
+      [
+        { label: 'Perímetro',       desc: 'Seis lados iguales. Los hexágonos tesela un plano perfectamente — la base de la estructura de panal.' },
+        { label: 'Área',            desc: 'Aproximadamente A ≈ 2.598s². La figura más eficiente en área para teselar un plano.' },
+        { label: 'Ángulo Interior', desc: 'Cada ángulo interior. Tres hexágonos se encuentran en cada vértice sumando 360° — permitiendo la tesela perfecta.' },
+        { label: 'Circunradio',     desc: 'Propiedad única: el circunradio de un hexágono regular es igual a su lado exactamente.' },
+      ],
+      // Heptágono
+      [
+        { label: 'Perímetro',       desc: 'Siete lados iguales.' },
+        { label: 'Área',            desc: 'Aproximadamente A ≈ 3.634s². El heptágono no se puede construir con compás y regla.' },
+        { label: 'Ángulo Interior', desc: 'Cada ángulo interior = (7−2)·180°/7. Suma de ángulos = 900°.' },
+        { label: 'Apotema',         desc: 'Aproximadamente a ≈ 1.038s.' },
+      ],
+      // Octágono
+      [
+        { label: 'Perímetro',       desc: 'Ocho lados iguales. Reconocido mundialmente como la señal de Stop.' },
+        { label: 'Área',            desc: 'Exactamente 2(1+√2)s² ≈ 4.828s². Se visualiza cortando las cuatro esquinas de un cuadrado.' },
+        { label: 'Ángulo Interior', desc: 'Cada ángulo interior. Suma de ángulos = 1080°.' },
+        { label: 'Circunradio',     desc: 'Aproximadamente R ≈ 1.307s. El octágono se aproxima mucho más a un círculo que los polígonos anteriores.' },
+      ],
+    ],
+  },
+};
+
+let currentLang = 'en';
+
+function setLang(lang) {
+  currentLang = lang;
+  const t = TRANSLATIONS[lang];
+
+  // Toggle button states (nav + any other instances)
+  document.querySelectorAll('#btnEn').forEach(b => b.classList.toggle('active', lang === 'en'));
+  document.querySelectorAll('#btnEs').forEach(b => b.classList.toggle('active', lang === 'es'));
+
+  // Rebuild nav list in new language
+  buildNavLinks(lang);
+
+  // Hero
+  document.querySelector('.eyebrow').textContent = t.eyebrow;
+  document.querySelector('.hero-sub').textContent = t.heroSub;
+  document.querySelector('.scroll-cta').lastChild.textContent = ' ' + t.scrollCta;
+
+  // N-gon section
+  document.querySelector('.ngon-head h2').textContent = t.ngonTitle;
+  document.querySelector('.ngon-head p').textContent  = t.ngonSub;
+  document.querySelector('.n-label').textContent      = t.nLabel;
+
+  // N-gon formula labels
+  document.querySelectorAll('.ngon-formula-card .f-label').forEach((el, i) => {
+    if (t.ngonLabels[i]) el.textContent = t.ngonLabels[i];
+  });
+
+  // Footer
+  document.querySelector('footer').textContent = t.footer;
+
+  // Nav lang label
+  const langLabel = document.querySelector('.nav-lang-label');
+  if (langLabel) langLabel.textContent = lang === 'es' ? 'Idioma' : 'Language';
+
+  // Re-render exercises in new language (score state preserved)
+  renderExercises(lang);
+
+  // Shape sections
+  document.querySelectorAll('.shape-section').forEach((sec, idx) => {
+    const sm = t.shapes[idx];
+    if (!sm) return;
+    sec.querySelector('.shape-dimension').textContent = `${sm.sidesLabel} · ${sm.dimension}`;
+    sec.querySelector('.shape-label h2').textContent  = sm.name;
+
+    const cards = sec.querySelectorAll('.formula-card');
+    const fts   = t.formulas[idx] || [];
+    cards.forEach((card, fi) => {
+      if (!fts[fi]) return;
+      card.querySelector('.f-label').textContent = fts[fi].label;
+      card.querySelector('.f-desc').textContent  = fts[fi].desc;
+    });
+  });
+
+  // Re-run N-gon angle labels with current n
+  updateNgon(+slider.value);
+  document.documentElement.lang = lang;
+}
+</script>
+</body>
+</html>
