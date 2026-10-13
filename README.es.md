@@ -1,12 +1,20 @@
 # Geometry Explorer
 
-Sitio web educativo interactivo y animado por scroll que guía a los estudiantes a través de la progresión de figuras geométricas — desde un punto sin dimensiones hasta un polígono de N lados — con dibujos SVG animados, fórmulas reveladas al desplazarse, paralaje con el mouse y soporte bilingüe.
+Sitio web educativo interactivo y animado por scroll en tres materias — **Geometría**, **Precálculo** y **Cálculo** — con dibujos y gráficas SVG animadas, fórmulas reveladas al desplazarse, explicaciones a fondo, laboratorios interactivos, ejercicios con verificación, paralaje con el mouse y soporte en inglés y español.
+
+| Página | Materia | Contenido |
+|---|---|---|
+| `index.html` | Geometría | Punto → Octágono, slider del polígono N, 27 ejercicios |
+| `precalculus.html` | Precálculo | 14 temas, Transformador de Funciones, 42 ejercicios |
+| `calculus.html` | Cálculo | 15 temas, Laboratorio de Derivadas e Integrales, 45 ejercicios |
+
+Las tres páginas se enlazan entre sí desde el menú (selector de materia) y con un botón “Siguiente materia” al final de cada página. El idioma elegido se recuerda entre páginas.
 
 ---
 
 ## Vista previa local
 
-Abre `index.html` directamente en cualquier navegador moderno, o sírvelo localmente:
+Abre cualquiera de las tres páginas directamente en un navegador moderno, o sirve la carpeta localmente:
 
 ```bash
 npx serve .
@@ -26,7 +34,7 @@ npx serve .
 | Animaciones | CSS `stroke-dashoffset`, `transform`, transiciones de `opacity` |
 | Scroll | `IntersectionObserver` + seguimiento manual de progreso de scroll |
 | Anclaje | CSS `scroll-snap-type: y proximity` |
-| Build | Ninguno — archivo `.html` único, sin dependencias |
+| Build | Ninguno — sin bundler, sin paquetes npm, sin librería de matemáticas |
 
 ---
 
@@ -45,18 +53,42 @@ npx serve .
 - **Sección de Ejercicios interactivos** — 27 problemas agrupados por figura (3 por figura), verificación de respuestas en tiempo real con tolerancia ±0.015 para decimales, pista revelada tras 2 intentos fallidos, contador de puntaje persistente, completamente bilingüe
 - **Botón volver al inicio** — aparece solo al llegar a la sección del Polígono N o a los Ejercicios
 
+### Páginas de Precálculo y Cálculo
+
+- **29 temas** — Precálculo: Funciones, Lineal y Cuadrática, Polinomios, Racionales, Exponenciales, Logaritmos, Círculo Unitario, Gráficas Trigonométricas, Identidades, Ley de Senos y Cosenos, Vectores, Polares y Complejos, Secciones Cónicas, Sucesiones y Series. Cálculo: Límites, Continuidad, La Derivada, Reglas de Derivación, Regla de la Cadena e Implícita, Derivadas Trascendentes, Trazado de Curvas, Optimización y Razones Relacionadas, L’Hôpital, Sumas de Riemann, Teorema Fundamental, Técnicas de Integración, Área y Volumen, Ecuaciones Diferenciales, Series de Taylor
+- **El mismo patrón de scroll pegajoso que Geometría** — cada tema mide 260 vh; su gráfica se dibuja sola y 4 tarjetas de fórmulas aparecen al desplazarse
+- **Gráficas de funciones en lugar de polígonos** — cada tema tiene una figura (asíntotas, rectas tangentes, rectángulos de Riemann, campos de pendientes, polinomios de Taylor…) dibujada con `stroke-dashoffset`
+- **“A Fondo” después de cada tema** — La Idea Central, Por Qué Funciona, Errores Comunes, un Ejemplo Resuelto paso a paso y Dónde Lo Verás
+- **Transformador de Funciones** (Precálculo) — elige x², x³, √x, |x|, sen x, eˣ o 1/x y mueve a, b, h, k en `y = a·f(b(x − h)) + k`; cada cambio se explica en palabras
+- **Laboratorio de Derivadas e Integrales** (Cálculo) — mueve x₀ para ver la recta tangente y f′(x₀); sube n para ver cómo los rectángulos izquierdos/medios/derechos convergen a la integral exacta
+- **Verificación de respuestas más flexible** — acepta decimales, comas, fracciones (`3/4`) y π (`pi`, `2pi`, `-pi/3`)
+
 ---
 
 ## Estructura de Archivos
 
 ```
 ciencias_naturales/
-├── index.html          # Toda la app — HTML + CSS + JS en un solo archivo
-├── README.md           # Documentación en inglés
-├── README.es.md        # Este archivo (Español)
-├── LESSON.md           # Tutorial paso a paso: cómo construir esto desde cero
-└── .git/               # Repositorio Git
+├── index.html              # Geometría — HTML + CSS + JS en un solo archivo (el original)
+├── precalculus.html        # Página de Precálculo: textos del hero + Explorer.init(...)
+├── precalculus-topics.js   # Datos de Precálculo: 14 temas (gráfica, fórmulas, A Fondo, ejercicios)
+├── precalculus-lab.js      # Transformador de Funciones
+├── calculus.html           # Página de Cálculo: textos del hero + Explorer.init(...)
+├── calculus-topics.js      # Datos de Cálculo: 15 temas
+├── calculus-lab.js         # Laboratorio de Derivadas e Integrales
+├── shared/
+│   ├── explorer.css        # Estilos de las dos páginas nuevas
+│   ├── explorer.js         # Motor: construye hero, temas, A Fondo, ejercicios, menú, EN/ES
+│   └── graph.js            # Mini ayudante de gráficas: coordenadas matemáticas → SVG
+├── README.md               # Documentación en inglés
+├── README.es.md            # Este archivo (Español)
+├── LESSON.md               # Tutorial paso a paso (los Pasos 16–19 explican el motor)
+└── PLAN-precalc-calc.md    # El plan de construcción de Precálculo y Cálculo
 ```
+
+### Agregar un tema
+
+Los temas son solo datos. Para agregar uno, añade un objeto a `PRECALC_TOPICS` o `CALC_TOPICS` con `id`, `color`, `tag`, `name`, `graph()`, `formulas`, `deep` y `exercises` (mira el ejemplo en `README.md`). El motor construye la sección, el “A Fondo”, los enlaces del menú y el grupo de ejercicios automáticamente. Dentro del texto, encierra las matemáticas entre comillas invertidas (`` `x²` ``) para darles estilo de fórmula.
 
 ### Secciones de la página (en orden de scroll)
 1. **Hero** — título a pantalla completa

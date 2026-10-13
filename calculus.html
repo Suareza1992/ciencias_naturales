@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculus — Limits to Series</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/explorer.css">
+</head>
+<body>
+<div class="bg-grid"></div>
+<div id="app"></div>
+
+<script src="shared/graph.js"></script>
+<script src="shared/explorer.js"></script>
+<script src="calculus-topics.js"></script>
+<script src="calculus-lab.js"></script>
+<script>
+// ─── Decorative hero curve: a wave and the area building up beneath it ─────
+function heroPath(f) {
+  let d = '';
+  for (let i = 0; i <= 240; i++) {
+    const x = i * 5;
+    d += (i ? 'L' : 'M') + x + ',' + f(x).toFixed(1);
+  }
+  return `<path d="${d}"/>`;
+}
+const HERO_CURVE =
+  heroPath(x => 210 - 110 * Math.sin(x / 110) * Math.exp(-x / 1600)) +
+  heroPath(x => 330 - 0.00018 * x * x);
+
+const NAV_GLYPH = `
+  <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <line x1="10" y1="130" x2="150" y2="130" stroke="#d4a853" stroke-width="0.8" opacity="0.4"/>
+    <path d="M40,130 L40,95 Q75,40 110,62 L110,130 Z" fill="rgba(212,168,83,0.12)"/>
+    <path d="M15,120 Q75,10 145,85" stroke="#d4a853" stroke-width="1.6"/>
+    <line x1="30" y1="40" x2="140" y2="78" stroke="#e893c5" stroke-width="1" opacity="0.8"/>
+    <circle cx="85" cy="57" r="4" fill="#d4a853"/>
+  </svg>`;
+
+Explorer.init({
+  subject: 'calc',
+  ui: {
+    docTitle: { en: 'Calculus — Limits to Series', es: 'Cálculo — De Límites a Series' },
+    eyebrow:  { en: 'The Mathematics of Change', es: 'La Matemática del Cambio' },
+    title:    { en: 'Calculus', es: 'Cálculo' },
+    navTitle: { en: 'Calculus', es: 'Cálculo' },
+    heroSub:  { en: 'Two questions run the whole subject: how fast is something changing right now, and how much has it added up to? Derivatives answer the first, integrals the second — and they turn out to be opposites.',
+                es: 'Dos preguntas mueven toda la materia: ¿qué tan rápido cambia algo en este instante?, y ¿cuánto se ha acumulado? Las derivadas responden la primera, las integrales la segunda — y resultan ser operaciones opuestas.' },
+    footer:   { en: 'Geometry Explorer · Calculus — An Interactive Educational Experience',
+                es: 'Explorador de Geometría · Cálculo — Una Experiencia Educativa Interactiva' },
+  },
+  heroCurve: HERO_CURVE,
+  navGlyph:  NAV_GLYPH,
+  topics:    CALC_TOPICS,
+  lab:       typeof CALC_LAB !== 'undefined' ? CALC_LAB : null,
+});
+</script>
+</body>
+</html>

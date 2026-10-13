@@ -434,6 +434,28 @@ input[type=range]::-webkit-slider-thumb {
 }
 .ex-hint.show { display: block; }
 
+/* ─── Subject switcher (nav) + next-subject link ──────────────────────────── */
+.subject-switch { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1.5rem; flex-shrink: 0; }
+.subject-switch a {
+  font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); text-decoration: none;
+  padding: 0.4rem 0.8rem; border-radius: 999px; border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.subject-switch a:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+.subject-switch a.current { color: var(--accent); border-color: rgba(212,168,83,0.45); background: rgba(212,168,83,0.08); }
+
+.subject-next { display: flex; justify-content: center; padding: 3rem 1rem 4rem; }
+.subject-next a {
+  display: inline-flex; align-items: center; gap: 0.9rem;
+  padding: 1rem 1.6rem; border-radius: 999px;
+  border: 1px solid rgba(212,168,83,0.35); background: rgba(212,168,83,0.06);
+  color: var(--text); text-decoration: none; font-weight: 600; letter-spacing: 0.02em;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.subject-next a:hover { background: rgba(212,168,83,0.14); border-color: var(--accent); transform: translateY(-2px); }
+.subject-next .next-eyebrow { font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); font-weight: 500; }
+
 /* ─── Footer ───────────────────────────────────────────────────────────────── */
 footer {
   text-align: center; padding: 3rem 2rem;
@@ -681,6 +703,13 @@ footer {
     <div class="nav-right">
       <button class="nav-close" id="navClose" aria-label="Close menu">✕</button>
 
+      <!-- Subjects: Geometry · Pre-Calculus · Calculus -->
+      <div class="subject-switch">
+        <a href="index.html" class="current" data-subject="0">Geometry</a>
+        <a href="precalculus.html" data-subject="1">Pre-Calculus</a>
+        <a href="calculus.html" data-subject="2">Calculus</a>
+      </div>
+
       <!-- Tabs -->
       <div class="nav-tabs">
         <button class="nav-tab-btn active" id="tabShapes" data-tab="shapes">Shapes</button>
@@ -786,6 +815,10 @@ footer {
   </div>
   <div id="exercisesContainer"></div>
 </section>
+
+<div class="subject-next">
+  <a href="precalculus.html"><span class="next-eyebrow" id="nextEyebrow">Next subject</span><span id="nextName">Pre-Calculus</span> →</a>
+</div>
 
 <footer>Geometry Explorer &mdash; An Interactive Educational Experience</footer>
 </main>
@@ -1785,10 +1818,23 @@ function setLang(lang) {
     });
   });
 
+  // Subject switcher + next-subject link
+  const subjectNames = lang === 'es' ? ['Geometría', 'Precálculo', 'Cálculo'] : ['Geometry', 'Pre-Calculus', 'Calculus'];
+  document.querySelectorAll('.subject-switch a').forEach(a => { a.textContent = subjectNames[+a.dataset.subject]; });
+  document.getElementById('nextEyebrow').textContent = lang === 'es' ? 'Siguiente materia' : 'Next subject';
+  document.getElementById('nextName').textContent    = subjectNames[1];
+
   // Re-run N-gon angle labels with current n
   updateNgon(+slider.value);
   document.documentElement.lang = lang;
+
+  // Remember the choice so Pre-Calculus and Calculus open in the same language
+  try { localStorage.setItem(LANG_KEY, lang); } catch (_) { /* private mode */ }
 }
+
+// Restore the language chosen on any of the three subject pages
+const LANG_KEY = 'geometry-explorer-lang';
+try { if (localStorage.getItem(LANG_KEY) === 'es') setLang('es'); } catch (_) { /* private mode */ }
 </script>
 </body>
 </html>

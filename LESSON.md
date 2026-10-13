@@ -21,6 +21,10 @@ This lesson walks you through building the entire site from a blank file. Each s
 13. A hamburger navigation menu overlay with tabs
 14. Atmospheric background palettes
 15. Interactive exercises with live answer checking
+16. From one page to an engine — data-driven subject pages (Pre-Calculus & Calculus)
+17. `graph.js` — turning math coordinates into SVG
+18. Bilingual text without rebuilding the page
+19. Interactive labs — re-drawing a graph on every slider move
 
 ---
 
@@ -733,6 +737,169 @@ const answered = new Map();  // e.g. "triangle-0" → true
 const wasCorrect = answered.get(id) === true;
 // Restore green state and disabled input if already correct
 ```
+
+---
+
+## Step 16 — From One Page to an Engine
+
+The geometry page is one 1,800-line file: HTML, CSS and JS, with each shape written out by hand. That works for 8 shapes. Pre-Calculus and Calculus have **29 topics**, each with a graph, four formula cards, a long Deep Dive and three exercises — in two languages. Copying the geometry page 29 times would be thousands of lines that all need the same fix whenever something changes.
+
+The solution is to separate **what** is shown (data) from **how** it is shown (engine):
+
+```
+shared/explorer.css    ← one stylesheet for both pages
+shared/explorer.js     ← the engine: builds every section from data
+shared/graph.js        ← draws graphs from math
+precalculus-topics.js  ← DATA: an array of topic objects
+precalculus.html       ← tiny: loads the files and calls Explorer.init(...)
+```
+
+A subject page is now just this:
+
+```js
+Explorer.init({
+  subject: 'precalc',
+  ui:      { title: { en: 'Pre-<br>Calculus', es: 'Pre-<br>cálculo' }, heroSub: { … }, … },
+  topics:  PRECALC_TOPICS,
+  lab:     PRECALC_LAB,
+});
+```
+
+and every topic is an object:
+
+```js
+{
+  id: 'logarithms', color: '#D88BD0',
+  tag:  L('Inverse of bˣ · “Which Exponent?”', 'Inversa de bˣ · “¿Qué Exponente?”'),
+  name: L('Logarithms', 'Logaritmos'),
+  graph() { /* returns an SVG string */ },
+  formulas:  [ { label, expr, desc }, … ],
+  deep:      { idea, why, mistakes, example: { prompt, steps, answer }, real },
+  exercises: [ { q, answer, hint }, … ],
+}
+```
+
+(`L(en, es)` is a one-line helper that returns `{ en, es }`.)
+
+Inside `explorer.js`, `buildTopics()` does exactly what the geometry page’s “Build Sections” loop does (Step 11): loop over the array, create a `<section>`, fill it with a template literal, apply the atmospheric tint (Step 14), and prime the SVG paths for the draw animation (Step 7). The scroll handler, parallax, menu and exercises are the same ideas you already built — written once, used by every topic.
+
+> **Big idea:** when you notice yourself copy-pasting the same structure, turn the structure into a function and the differences into data.
+
+---
+
+## Step 17 — `graph.js`: Math Coordinates → SVG
+
+SVG’s y-axis points **down** and starts at the top-left corner. Math’s y-axis points **up** and the origin can be anywhere. `Graph()` converts between them with two tiny functions:
+
+```js
+const sx = x => PAD + (x - x0) / (x1 - x0) * (SIZE - 2 * PAD);          // left → right
+const sy = y => SIZE - PAD - (y - y0) / (y1 - y0) * (SIZE - 2 * PAD);   // flipped!
+```
+
+`x0…x1` and `y0…y1` are the visible window in math units; `SIZE` is the 400-px viewBox. This is the same proportion idea as the polygon vertices in Step 5, just stretched to a rectangle.
+
+### Plotting y = f(x)
+
+A computer cannot draw a curve — it draws many short straight lines. `g.fn(f)` samples 320 x-values, computes `f(x)` for each, and joins them into one path (`M` = move the pen, `L` = draw a line to):
+
+```js
+for (let i = 0; i <= n; i++) {
+  const x = from + (to - from) * i / n;
+  const y = f(x);
+  …
+  d += (pen ? 'L' : 'M') + sx(x) + ',' + sy(y);
+}
+```
+
+Two details make it robust:
+
+- **Asymptotes.** Near `x = 1`, the function `1/(x − 1)` jumps from −3000 to +3000 between neighbouring samples. Joining those points would draw a fake vertical line. So if `y` is not finite, or jumps by more than 1.5 window-heights, the helper lifts the pen (`M` instead of `L`).
+- **Clipping.** Curves shoot off the window. Rather than cut them by hand, every curve goes inside `<g clip-path="url(#…)">`, and a `<clipPath>` rectangle hides anything outside the plot box.
+
+### The draw-in animation still works
+
+Every curve gets the class `g-draw`. After the section is built, the engine measures each path, exactly like Step 7:
+
+```js
+const len = Math.ceil(path.getTotalLength()) + 1;
+path.style.strokeDasharray  = len;
+path.style.strokeDashoffset = len;
+```
+
+When the section gets `.in-view`, CSS transitions the offset to 0. A CSS variable `--d` gives each piece its own delay, so the main curve draws first, then the tangent line, then the dots fade in.
+
+---
+
+## Step 18 — Bilingual Text Without Rebuilding
+
+The geometry page keeps a separate `TRANSLATIONS` object and, in `setLang()`, finds every element and replaces its text by position (Step 12). That gets painful with ~1,500 strings.
+
+The engine uses a **registry** instead. Every bilingual value is stored once in an array, and the HTML only remembers its index:
+
+```js
+const I18N = [];
+const t = v => {
+  I18N.push(v);                                   // v = { en: '…', es: '…' }
+  return `<span data-t="${I18N.length - 1}">${tr(v)}</span>`;
+};
+```
+
+Switching language is then one loop, no matter how many strings exist:
+
+```js
+document.querySelectorAll('[data-t]').forEach(el => {
+  el.innerHTML = fmt(tr(I18N[+el.dataset.t]));
+});
+```
+
+Because nothing is rebuilt, exercise answers, scroll position and finished animations all survive a language switch. `localStorage` remembers the choice, so moving from Geometry to Calculus keeps you in Spanish. (It is wrapped in `try/catch` because private browsing can block storage.)
+
+`fmt()` adds one more trick: anything written between backticks in the data — `` `f′(x) = 2x` `` — becomes `<span class="m">…</span>`, the small monospace “math chip” you see inside Deep Dive paragraphs.
+
+---
+
+## Step 19 — Interactive Labs
+
+The N-gon slider (Step 5) redraws one polygon. The labs redraw a whole graph on every `input` event — fast enough because a graph is only a few kilobytes of SVG text:
+
+```js
+input.addEventListener('input', () => {
+  state.a = +input.value;
+  render();            // builds a new Graph() and replaces svgWrap.innerHTML
+});
+```
+
+Labs pass `animate: false` to `Graph()` so the curves appear instantly instead of drawing in.
+
+**Function Transformer.** The transformed function is just a wrapper around the parent:
+
+```js
+const T = x => a * p.f(b * (x - h)) + k;
+```
+
+and the parent’s anchor point `(x₀, y₀)` lands at `(x₀/b + h, a·y₀ + k)` — the whole theory of transformations in one line.
+
+**Derivative & Integral Lab.** The Riemann sum is a loop that both draws and adds:
+
+```js
+for (let i = 0; i < n; i++) {
+  const xi = a + i * dx;
+  const h  = F.f(M.at(xi, dx));     // left, midpoint or right
+  sum += h * dx;
+  g.rect(xi, 0, dx, h, { color: 2 });
+}
+```
+
+The exact answer comes from the Fundamental Theorem: `F(b) − F(a)` using an antiderivative stored next to each function. Watching `|sum − exact|` shrink as you drag `n` *is* the definition of the integral.
+
+### Try it
+
+1. **New Pre-Calculus topic** — add “Matrices” to `PRECALC_TOPICS`. Its graph could draw a unit square and its image under a 2 × 2 matrix with `g.poly(…, { close: true, fill: true })`.
+2. **New parent function** — add `ln x` to the Transformer’s `PARENTS` list (remember its vertical asymptote: `vAsym: 0`).
+3. **Trapezoid rule** — add a fourth method to the Calculus lab that averages the left and right heights.
+4. **Third language** — every `L(en, es)` could become `{ en, es, pt }`. Only `tr()` and the language buttons need to change.
+
+---
 
 ## Putting It All Together
 
