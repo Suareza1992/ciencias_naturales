@@ -25,6 +25,7 @@ This lesson walks you through building the entire site from a blank file. Each s
 17. `graph.js` — turning math coordinates into SVG
 18. Bilingual text without rebuilding the page
 19. Interactive labs — re-drawing a graph on every slider move
+20. Exercise generators — unlimited fill-in-the-matrix practice with worked steps (Linear Algebra)
 
 ---
 
@@ -898,6 +899,53 @@ The exact answer comes from the Fundamental Theorem: `F(b) − F(a)` using an an
 2. **New parent function** — add `ln x` to the Transformer’s `PARENTS` list (remember its vertical asymptote: `vAsym: 0`).
 3. **Trapezoid rule** — add a fourth method to the Calculus lab that averages the left and right heights.
 4. **Third language** — every `L(en, es)` could become `{ en, es, pt }`. Only `tr()` and the language buttons need to change.
+
+
+## Step 20 — Exercise Generators (Linear Algebra)
+
+Pre-Calculus and Calculus have 3 hand-written exercises per topic. Linear Algebra needed **many** — at three difficulty levels, each with a full worked solution. Writing hundreds by hand would be slow and error-prone, so each exercise is produced by a **generator**: a function that picks numbers and builds the problem, the answer *and* the steps from them.
+
+```js
+G.matmul = {
+  easy(r) {
+    const A = r.mat(2, 2, -4, 4), B = r.mat(2, 2, -4, 4);    // random 2×2 integer matrices
+    return {
+      prompt: L('Multiply A · B.', 'Multiplica A · B.'),
+      lhs:    [{ label: 'A', m: A }, '·', { label: 'B', m: B }],
+      answer: { label: 'AB', m: matmul(A, B) },
+      steps:  [rowColIntro, ...cellSteps(A, B)],              // "c₁₂ = 1·5 + 2·7 = 19", …
+    };
+  },
+  …
+};
+```
+
+Because the steps are computed from the same numbers as the answer, they can never disagree with it.
+
+### Seeded randomness
+
+`Math.random()` would give different exercises on every reload, which is confusing ("Exercise 3 was different a minute ago!"). Instead each card gets a **seed** built from its topic, difficulty, position and a counter — `hash("matmul|easy|2|0")` — and a tiny pseudo-random generator (`mulberry32`) turns that seed into a repeatable stream of numbers. Same seed → same exercise. The **New ↻** button just bumps the counter.
+
+### Choosing numbers that work
+
+Random numbers often make ugly or impossible problems. The generators work **backwards** from a nice answer:
+
+- **Systems** pick the solution `x` first, then compute `b = A·x` — so the answer is always an integer.
+- **Inverses** that must be integers start from the identity and apply random row additions (each keeps det = 1), so `A⁻¹` is also an integer matrix.
+- **Eigenvalues** pick λ₁ and λ₂ first, then build a matrix with that trace and determinant.
+- **Normalizing** uses Pythagorean quadruples like (2, 3, 6) whose length is a whole number (7).
+
+If a draw is still bad (det = 0, a zero vector…) the generator returns `null` and the engine tries the next seed.
+
+### Exact fractions
+
+Gauss–Jordan steps like `R₂ → R₂ − (3/2)·R₁` must stay exact, so `matrix-practice.js` has a small `Fr` (fraction) class: `new Fr(3, 4).add(new Fr(1, 4))` → `1`. Fractions print as `3/4`, and students may type `3/4` or `0.75` — the checker compares numeric values with a small tolerance.
+
+### Testing generators
+
+Since the exercises are code, they can be tested like code. A Node script generates thousands of exercises and checks them mathematically: plug the solution back into `Ax = b`, verify `A·A⁻¹ = I`, `Av = λv`, compare the quaternion shortcut with a real `q·v·q*` product. One test run like this caught a display bug (negative angles printed with the wrong minus sign) before anyone saw it.
+
+> **Big idea:** when you need lots of correct examples, write the *recipe* and let the computer cook — then test the recipe.
 
 ---
 

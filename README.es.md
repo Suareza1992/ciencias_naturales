@@ -1,20 +1,21 @@
 # Geometry Explorer
 
-Sitio web educativo interactivo y animado por scroll en tres materias — **Geometría**, **Precálculo** y **Cálculo** — con dibujos y gráficas SVG animadas, fórmulas reveladas al desplazarse, explicaciones a fondo, laboratorios interactivos, ejercicios con verificación, paralaje con el mouse y soporte en inglés y español.
+Sitio web educativo interactivo y animado por scroll en cuatro materias — **Geometría**, **Precálculo**, **Cálculo** y **Álgebra Lineal** — con dibujos y gráficas SVG animadas, fórmulas reveladas al desplazarse, explicaciones a fondo, laboratorios interactivos, ejercicios con verificación, paralaje con el mouse y soporte en inglés y español.
 
 | Página | Materia | Contenido |
 |---|---|---|
 | `index.html` | Geometría | Punto → Octágono, slider del polígono N, 27 ejercicios |
 | `precalculus.html` | Precálculo | 14 temas, Transformador de Funciones, 42 ejercicios |
 | `calculus.html` | Cálculo | 15 temas, Laboratorio de Derivadas e Integrales, 45 ejercicios |
+| `linear-algebra.html` | Álgebra Lineal | 16 temas enfocados en AR/VR, Laboratorio de Transformaciones, 192 ejercicios generados de completar matrices (ilimitados con Nuevo ↻ / + Más) |
 
-Las tres páginas se enlazan entre sí desde el menú (selector de materia) y con un botón “Siguiente materia” al final de cada página. El idioma elegido se recuerda entre páginas.
+Las páginas se enlazan entre sí desde el menú (selector de materia) y con un botón “Siguiente materia” al final de cada página. El idioma elegido se recuerda entre páginas.
 
 ---
 
 ## Vista previa local
 
-Abre cualquiera de las tres páginas directamente en un navegador moderno, o sirve la carpeta localmente:
+Abre cualquiera de las páginas directamente en un navegador moderno, o sirve la carpeta localmente:
 
 ```bash
 npx serve .
@@ -63,6 +64,15 @@ npx serve .
 - **Laboratorio de Derivadas e Integrales** (Cálculo) — mueve x₀ para ver la recta tangente y f′(x₀); sube n para ver cómo los rectángulos izquierdos/medios/derechos convergen a la integral exacta
 - **Verificación de respuestas más flexible** — acepta decimales, comas, fracciones (`3/4`) y π (`pi`, `2pi`, `-pi/3`)
 
+### Página de Álgebra Lineal (pensada para AR/VR y gráficos 3D)
+
+- **16 temas** — Vectores en 3D, Producto Punto, Producto Cruz, Matrices y Operaciones, Multiplicación de Matrices, Sistemas y Eliminación, Determinantes, Matrices Inversas, Transformaciones 2D, Rotaciones 3D, Coordenadas Homogéneas (4×4 / TRS), Cambio de Base (espacio local/mundo/vista), Ortogonalidad y Gram–Schmidt, Matrices de Proyección, Valores y Vectores Propios, Cuaterniones. Cada “A Fondo” termina con cómo se usa el tema en motores de AR/VR
+- **Ejercicios de completar matrices** — cada tarjeta muestra las matrices dadas y una matriz respuesta con celdas vacías para escribir. Verificar colorea cada celda verde/roja; **Ver respuesta** llena las celdas; **Ver pasos** explica cómo se calcula cada entrada (sumas fila-por-columna, cada operación de fila de Gauss–Jordan con la matriz intermedia, matrices de cofactores y adjunta, productos de Hamilton…)
+- **Fácil / Medio / Difícil** — 4 de cada uno por tema (192 en total), con filtro de dificultad
+- **Práctica ilimitada** — los ejercicios los producen **generadores**: **Nuevo ↻** cambia una tarjeta por un problema nuevo y **+ Más ejercicios** agrega tres más a un tema
+- **Matemática exacta** — las soluciones se calculan con fracciones exactas y cada generador está probado automáticamente
+- **Laboratorio de Transformaciones** — una matriz 4×4 editable mueve un cubo 3D; los ajustes se pueden componer (M ← P·M) y la página explica qué hace la matriz actual
+
 ---
 
 ## Estructura de Archivos
@@ -76,13 +86,18 @@ ciencias_naturales/
 ├── calculus.html           # Página de Cálculo: textos del hero + Explorer.init(...)
 ├── calculus-topics.js      # Datos de Cálculo: 15 temas
 ├── calculus-lab.js         # Laboratorio de Derivadas e Integrales
+├── linear-algebra.html     # Página de Álgebra Lineal
+├── linear-algebra-topics.js    # 16 temas (gráficas, fórmulas, A Fondo)
+├── linear-algebra-exercises.js # GENERADORES de ejercicios: fácil/medio/difícil por tema, con pasos
+├── linear-algebra-lab.js       # Laboratorio de Transformaciones (matriz 4×4 + cubo)
 ├── shared/
 │   ├── explorer.css        # Estilos de las dos páginas nuevas
 │   ├── explorer.js         # Motor: construye hero, temas, A Fondo, ejercicios, menú, EN/ES
-│   └── graph.js            # Mini ayudante de gráficas: coordenadas matemáticas → SVG
+│   ├── graph.js            # Mini ayudante de gráficas: coordenadas matemáticas → SVG
+│   └── matrix-practice.js  # Interfaz de completar matrices, fracciones exactas, aleatoriedad con semilla
 ├── README.md               # Documentación en inglés
 ├── README.es.md            # Este archivo (Español)
-├── LESSON.md               # Tutorial paso a paso (los Pasos 16–19 explican el motor)
+├── LESSON.md               # Tutorial paso a paso (los Pasos 16–20 explican el motor)
 └── PLAN-precalc-calc.md    # El plan de construcción de Precálculo y Cálculo
 ```
 

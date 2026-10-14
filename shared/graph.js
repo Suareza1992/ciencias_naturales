@@ -176,7 +176,7 @@ function Graph(opts = {}) {
       const p2 = [bx - L * Math.cos(ang) + W * Math.sin(ang), by - L * Math.sin(ang) - W * Math.cos(ang)];
       const p3 = [bx - L * Math.cos(ang) - W * Math.sin(ang), by - L * Math.sin(ang) + W * Math.cos(ang)];
       const a = animAttrs({ ...o, delay: (o.delay ?? 0) + 1.2 }, 'fade');
-      parts.push(`<polygon class="g-dot c${o.color ?? 1}${a.cls}" points="${[p1, p2, p3].map(p => p.map(r2).join(',')).join(' ')}"${a.style}/>`);
+      parts.push(`<polygon class="g-dot c${o.color ?? 1}${o.ghost ? ' ghost' : ''}${a.cls}" points="${[p1, p2, p3].map(p => p.map(r2).join(',')).join(' ')}"${a.style}/>`);
       return api;
     },
 

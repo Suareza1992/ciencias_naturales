@@ -708,6 +708,7 @@ footer {
         <a href="index.html" class="current" data-subject="0">Geometry</a>
         <a href="precalculus.html" data-subject="1">Pre-Calculus</a>
         <a href="calculus.html" data-subject="2">Calculus</a>
+        <a href="linear-algebra.html" data-subject="3">Linear Algebra</a>
       </div>
 
       <!-- Tabs -->
@@ -1819,7 +1820,7 @@ function setLang(lang) {
   });
 
   // Subject switcher + next-subject link
-  const subjectNames = lang === 'es' ? ['Geometría', 'Precálculo', 'Cálculo'] : ['Geometry', 'Pre-Calculus', 'Calculus'];
+  const subjectNames = lang === 'es' ? ['Geometría', 'Precálculo', 'Cálculo', 'Álgebra Lineal'] : ['Geometry', 'Pre-Calculus', 'Calculus', 'Linear Algebra'];
   document.querySelectorAll('.subject-switch a').forEach(a => { a.textContent = subjectNames[+a.dataset.subject]; });
   document.getElementById('nextEyebrow').textContent = lang === 'es' ? 'Siguiente materia' : 'Next subject';
   document.getElementById('nextName').textContent    = subjectNames[1];

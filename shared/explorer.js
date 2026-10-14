@@ -55,6 +55,7 @@ const Explorer = (() => {
     { id: 'geo',     href: 'index.html',       name: { en: 'Geometry',     es: 'Geometría' } },
     { id: 'precalc', href: 'precalculus.html', name: { en: 'Pre-Calculus', es: 'Precálculo' } },
     { id: 'calc',    href: 'calculus.html',    name: { en: 'Calculus',     es: 'Cálculo' } },
+    { id: 'linalg',  href: 'linear-algebra.html', name: { en: 'Linear Algebra', es: 'Álgebra Lineal' } },
   ];
 
   let lang = 'en';
@@ -118,7 +119,7 @@ const Explorer = (() => {
 
       <main>
         <section class="hero">
-          ${cfg.heroCurve ? `<svg class="hero-curve" viewBox="0 0 1200 400" preserveAspectRatio="none">${cfg.heroCurve}</svg>` : ''}
+          ${cfg.heroCurve ? `<svg class="hero-curve" viewBox="0 0 1200 400" preserveAspectRatio="none">${cfg.heroCurve.replace(/<path /g, '<path pathLength="1" ')}</svg>` : ''}
           <p class="eyebrow">${t(u.eyebrow)}</p>
           <h1>${t(u.title)}</h1>
           <p class="hero-sub">${t(u.heroSub)}</p>
@@ -135,7 +136,7 @@ const Explorer = (() => {
           <div class="exercises-header">
             <div class="exercises-header-text">
               <h2>${t(UI.exTitle)}</h2>
-              <p>${t(UI.exSub)}</p>
+              <p>${t(u.exSub ?? UI.exSub)}</p>
             </div>
             <div class="score-pill">
               <span class="score-correct" id="scoreCorrect">0</span>
@@ -291,7 +292,7 @@ const Explorer = (() => {
 
   // Accepts 3, -2.5, 3,5, 3/4, pi, 2pi, -pi/3, π/2
   function parseAnswer(raw) {
-    let s = raw.trim().toLowerCase().replace(/\s+/g, '').replace(/,/g, '.').replace(/pi/g, 'π');
+    let s = raw.trim().toLowerCase().replace(/\s+/g, '').replace(/,/g, '.').replace(/[−–]/g, '-').replace(/pi/g, 'π');
     const m = s.match(/^([+-]?)(\d*\.?\d*)(π?)(?:\/(\d*\.?\d+))?$/);
     if (!m || (!m[2] && !m[3])) return NaN;
     let v = m[2] ? parseFloat(m[2]) : 1;
@@ -303,6 +304,8 @@ const Explorer = (() => {
 
   function buildExercises() {
     const container = document.getElementById('exercisesContainer');
+    // A page can bring its own exercise system (Linear Algebra's matrix practice)
+    if (cfg.practice) { cfg.practice.mount(container, labCtx()); return; }
     let running = 0;
     cfg.topics.forEach(topic => {
       if (!topic.exercises?.length) return;
@@ -441,6 +444,20 @@ const Explorer = (() => {
     langListeners.forEach(fn => fn(lang));
   }
 
+  // Helpers handed to labs and custom practice modules
+  function labCtx() {
+    return {
+      t, tr, fmt, setT, Graph, parseAnswer, isClose,
+      topics: cfg.topics,
+      onLang: fn => langListeners.push(fn),
+      getLang: () => lang,
+      setScore(correct, total) {
+        document.getElementById('scoreCorrect').textContent = correct;
+        document.getElementById('scoreTotal').textContent   = total;
+      },
+    };
+  }
+
   // ─── Init ─────────────────────────────────────────────────────────────────
   function init(config) {
     cfg = config;
@@ -454,7 +471,7 @@ const Explorer = (() => {
 
     if (cfg.lab) {
       const labEl = document.getElementById('labSection');
-      cfg.lab.mount(labEl, { t, tr, fmt, setT, Graph, onLang: fn => langListeners.push(fn), getLang: () => lang });
+      cfg.lab.mount(labEl, labCtx());
     }
 
     setLang(lang);

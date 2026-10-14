@@ -66,7 +66,7 @@ main { position: relative; z-index: 1; }
 }
 .hero-curve path {
   fill: none; stroke: var(--accent); stroke-width: 1.5;
-  stroke-dasharray: 3000; stroke-dashoffset: 3000;
+  stroke-dasharray: 1; stroke-dashoffset: 1;   /* paths get pathLength="1" in explorer.js */
   animation: hero-draw 3.2s cubic-bezier(0.4,0,0.2,1) 0.3s forwards;
 }
 .hero-curve path + path { stroke: var(--accent2); animation-delay: 0.9s; opacity: 0.7; }
@@ -206,6 +206,7 @@ main { position: relative; z-index: 1; }
 .g-dot.c2    { fill: var(--accent2); stroke: var(--accent2); }
 .g-dot.c3    { fill: var(--accent3); stroke: var(--accent3); }
 .g-dot.hollow { fill: var(--bg); }
+.g-dot.ghost  { fill: rgba(240,237,230,0.35); stroke: none; filter: none; }
 
 /* Draw-in animation: JS sets stroke-dasharray/offset to the path length,
    .in-view releases it. --d is a per-element delay. */
@@ -359,6 +360,90 @@ input[type=range]::-moz-range-thumb {
   width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
   border: 2px solid var(--bg); box-shadow: 0 0 12px rgba(212,168,83,0.6);
 }
+
+/* ─── Matrix practice (Linear Algebra) ─────────────────────────────────────── */
+/* A matrix is a CSS grid with bracket borders on the left and right */
+.mx {
+  display: inline-grid; grid-template-columns: repeat(var(--cols), auto);
+  gap: 0.3rem 0.55rem; padding: 0.45rem 0.6rem; position: relative;
+  vertical-align: middle;
+}
+.mx::before, .mx::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 7px;
+  border: 1.5px solid rgba(240,237,230,0.55);
+}
+.mx::before { left: 0;  border-right: none; border-radius: 4px 0 0 4px; }
+.mx::after  { right: 0; border-left: none;  border-radius: 0 4px 4px 0; }
+.mx-cell {
+  font-family: var(--mono); font-size: 0.92rem; min-width: 2.2rem; height: 2.1rem;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  color: var(--text); position: relative;
+}
+.mx-cell.aug::before {
+  content: ''; position: absolute; left: -0.32rem; top: -0.2rem; bottom: -0.2rem;
+  border-left: 1px dashed rgba(240,237,230,0.4);
+}
+.mx-given { color: var(--muted); }
+.mx-in {
+  width: 4.2rem; background: rgba(0,0,0,0.35); border: 1px solid rgba(212,168,83,0.35);
+  border-radius: 7px; outline: none; padding: 0 0.3rem; color: var(--text);
+  transition: border-color 0.2s, background 0.2s;
+}
+.mx-in:focus { border-color: var(--accent); background: rgba(212,168,83,0.07); }
+.mx-in.ok    { border-color: rgba(93,222,139,0.7); color: var(--good); }
+.mx-in.bad   { border-color: rgba(255,100,100,0.75); color: var(--bad); background: rgba(255,100,100,0.06); }
+.mx-in.shown { border-color: rgba(143,184,255,0.6); color: var(--accent2); }
+.mx-in:disabled { opacity: 1; }
+.mx.small { gap: 0.15rem 0.45rem; padding: 0.3rem 0.5rem; }
+.mx.small .mx-cell { font-size: 0.78rem; min-width: 1.6rem; height: 1.5rem; }
+
+.mx-eq {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem 0.8rem;
+  margin: 0.4rem 0 1.1rem; overflow-x: auto; padding-bottom: 0.2rem;
+}
+.mx-term { display: inline-flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.mx-label { font-family: var(--mono); font-size: 0.72rem; color: var(--accent); }
+.mx-op { font-family: var(--mono); font-size: 1.1rem; color: var(--muted); }
+
+.mx-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.2rem 1.4rem; margin-bottom: 0.85rem;
+  transition: border-color 0.3s;
+}
+.mx-card.correct  { border-color: rgba(93,222,139,0.4); }
+.mx-card.wrong    { border-color: rgba(255,100,100,0.35); }
+.mx-card.revealed { border-color: rgba(143,184,255,0.35); }
+.mx-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.55rem; }
+.mx-head .ex-num { margin: 0; }
+.mx-badge {
+  font-size: 0.58rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
+  padding: 0.22rem 0.6rem; border-radius: 999px; border: 1px solid;
+}
+.mx-badge.easy   { color: var(--good);    border-color: rgba(93,222,139,0.4);  background: rgba(93,222,139,0.07); }
+.mx-badge.medium { color: var(--accent);  border-color: rgba(212,168,83,0.45); background: rgba(212,168,83,0.07); }
+.mx-badge.hard   { color: var(--accent3); border-color: rgba(232,147,197,0.45); background: rgba(232,147,197,0.07); }
+.mx-actions { gap: 0.5rem; }
+.ex-btn.ghost { background: transparent; border-color: var(--border); color: var(--muted); }
+.ex-btn.ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.03); }
+.mx-steps {
+  margin-top: 1rem; padding: 1rem 1.1rem; border-radius: 10px;
+  background: rgba(143,184,255,0.04); border: 1px solid rgba(143,184,255,0.18);
+}
+.mx-steps .f-label { color: var(--accent2); margin-bottom: 0.8rem; }
+.mx-steps .dd-steps li { position: relative; font-size: 0.86rem; color: rgba(240,237,230,0.85); }
+.mx-step-m { margin-top: 0.4rem; }
+
+.mx-filter {
+  display: flex; gap: 0.4rem; flex-wrap: wrap;
+  max-width: 900px; margin: -2rem auto 2.5rem;
+}
+.mx-more { margin-top: 0.2rem; }
+#exercisesContainer[data-filter="easy"]   .mx-card:not([data-diff="easy"]),
+#exercisesContainer[data-filter="medium"] .mx-card:not([data-diff="medium"]),
+#exercisesContainer[data-filter="hard"]   .mx-card:not([data-diff="hard"]) { display: none; }
+
+/* Lab: editable 4×4 matrix */
+.mx-edit .mx-in { width: 3.6rem; }
 
 /* ─── Back to Top ──────────────────────────────────────────────────────────── */
 .back-top {
@@ -612,6 +697,10 @@ footer {
   .lab-body { gap: 2rem; }
   .lab-right { min-width: 0; width: 100%; }
   .lab-readout { font-size: 0.95rem; }
+  .mx-card { padding: 1rem 0.9rem; }
+  .mx-in { width: 3.5rem; }
+  .mx-cell { min-width: 1.8rem; font-size: 0.82rem; }
+  .mx-filter { margin-top: -1rem; }
 
   .nav-panel { grid-template-columns: 1fr; }
   .nav-left  { display: none; }

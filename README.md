@@ -1,20 +1,21 @@
 # Geometry Explorer
 
-An interactive, scroll-driven educational website in three subjects — **Geometry**, **Pre-Calculus** and **Calculus** — with animated SVG drawings and graphs, scroll-revealed formulas, long-form Deep Dive explanations, interactive labs, checked exercises, mouse parallax, and English/Spanish support.
+An interactive, scroll-driven educational website in four subjects — **Geometry**, **Pre-Calculus**, **Calculus** and **Linear Algebra** — with animated SVG drawings and graphs, scroll-revealed formulas, long-form Deep Dive explanations, interactive labs, checked exercises, mouse parallax, and English/Spanish support.
 
 | Page | Subject | Contents |
 |---|---|---|
 | `index.html` | Geometry | Point → Octagon, N-gon slider, 27 exercises |
 | `precalculus.html` | Pre-Calculus | 14 topics, Function Transformer lab, 42 exercises |
 | `calculus.html` | Calculus | 15 topics, Derivative & Integral Lab, 45 exercises |
+| `linear-algebra.html` | Linear Algebra | 16 AR/VR-focused topics, Transform Playground, 192 generated fill-in-the-matrix exercises (unlimited with New ↻ / + More) |
 
-The three pages link to each other from the menu (subject switcher) and from a "Next subject" button at the end of each page. The language choice is remembered across pages.
+The pages link to each other from the menu (subject switcher) and from a "Next subject" button at the end of each page. The language choice is remembered across pages.
 
 ---
 
 ## Live Preview
 
-Open any of the three pages directly in a modern browser, or serve the folder locally:
+Open any of the pages directly in a modern browser, or serve the folder locally:
 
 ```bash
 npx serve .
@@ -63,6 +64,15 @@ npx serve .
 - **Derivative & Integral Lab** (Calculus) — slide x₀ to see the tangent line and f′(x₀); raise n to watch left/midpoint/right rectangles converge on the exact integral
 - **Smarter answer checking** — accepts decimals, commas, fractions (`3/4`) and π (`pi`, `2pi`, `-pi/3`)
 
+### Linear Algebra page (built for AR/VR and 3D graphics)
+
+- **16 topics** — Vectors in 3D, Dot Product, Cross Product, Matrices & Operations, Matrix Multiplication, Systems & Elimination, Determinants, Inverse Matrices, 2D Transformations, 3D Rotations, Homogeneous Coordinates (4×4 / TRS), Change of Basis (local/world/view space), Orthogonality & Gram–Schmidt, Projection Matrices, Eigenvalues & Eigenvectors, Quaternions. Every Deep Dive ends with how the topic is used in AR/VR engines
+- **Fill-in-the-matrix exercises** — each card shows the given matrices and an answer matrix with blank cells to type into. Check colors every cell green/red; **Show answer** fills the blanks; **Show steps** explains how every single entry is calculated (row-times-column sums, every Gauss–Jordan row operation with the intermediate matrix, cofactor and adjugate matrices, Hamilton products…)
+- **Easy / Medium / Hard** — 4 of each per topic (192 total), with a difficulty filter. Easy leaves some cells as hints; Hard leaves none and combines ideas (e.g. T·R·S model matrices, 4×4 determinants, 3-vector Gram–Schmidt, perspective matrices)
+- **Unlimited practice** — exercises are produced by **generators**, not typed by hand: **New ↻** replaces a card with a fresh problem and **+ More exercises** adds three more to a topic. A seeded random generator keeps the first set identical on every reload
+- **Exact math** — solutions are computed with exact fractions (`shared/matrix-practice.js`), and every generator is fuzz-tested and checked (Ax = b, A·A⁻¹ = I, Av = λv, q·v·q* …)
+- **Transform Playground lab** — an editable 4×4 matrix drives a 3D cube; presets (translate, scale, rotate X/Y/Z, shear, mirror, flatten, perspective) can be composed (M ← P·M), and the page explains the determinant, axes, translation and perspective of the current matrix
+
 ---
 
 ## File Structure
@@ -76,13 +86,18 @@ ciencias_naturales/
 ├── calculus.html           # Calculus page: hero text + Explorer.init(...)
 ├── calculus-topics.js      # Calculus data: 15 topics
 ├── calculus-lab.js         # Derivative & Integral Lab
+├── linear-algebra.html     # Linear Algebra page: hero text + Explorer.init(... practice ...)
+├── linear-algebra-topics.js    # 16 topics (graphs, formulas, Deep Dives)
+├── linear-algebra-exercises.js # Exercise GENERATORS: easy/medium/hard per topic, with steps
+├── linear-algebra-lab.js       # Transform Playground (4×4 matrix + cube)
 ├── shared/
 │   ├── explorer.css        # Styles for both new pages (geometry look + graphs, Deep Dives, labs)
 │   ├── explorer.js         # Engine: builds hero, topics, Deep Dives, exercises, menu, EN/ES
-│   └── graph.js            # Tiny plotting helper: math coordinates → SVG
+│   ├── graph.js            # Tiny plotting helper: math coordinates → SVG
+│   └── matrix-practice.js  # Fill-in-the-matrix UI, exact fractions, seeded randomness
 ├── README.md               # This file (English)
 ├── README.es.md            # Spanish README
-├── LESSON.md               # Step-by-step tutorial (Steps 16–19 cover the engine)
+├── LESSON.md               # Step-by-step tutorial (Steps 16–20 cover the engine)
 └── PLAN-precalc-calc.md    # The build plan for the Pre-Calculus & Calculus pages
 ```
 
@@ -148,3 +163,24 @@ Visual design and scroll-animation pattern inspired by the [Rockstar Games GTA V
 ## License
 
 MIT — free to use and modify for educational purposes.
+
+### Adding a Linear Algebra exercise type
+
+Add a generator to `LA_GENERATORS` in `linear-algebra-exercises.js` under the topic’s `id`:
+
+```js
+G.myTopic = {
+  easy(r) {                          // r = seeded random: r.int(a, b), r.nz(), r.pick([...]), r.mat(rows, cols, a, b)
+    const A = r.mat(2, 2, -5, 5);
+    return {
+      prompt: L('Compute 2A.', 'Calcula 2A.'),
+      lhs:    [{ label: 'A', m: A }],
+      answer: { label: '2A', m: A.map(row => row.map(x => 2 * x)) },   // blanks are chosen automatically
+      steps:  [L('Multiply every entry by 2.', 'Multiplica cada entrada por 2.')],
+    };
+  },
+  medium(r) { … }, hard(r) { … },
+};
+```
+
+Return `null` to reject a bad draw (the engine draws again). Entries may be numbers or exact fractions (`new MX.Fr(3, 4)`).
