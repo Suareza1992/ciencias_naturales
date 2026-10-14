@@ -79,14 +79,18 @@ npx serve .
 
 ```
 ciencias_naturales/
-├── index.html              # Geometry — HTML + CSS + JS in one file (the original)
-├── precalculus.html        # Pre-Calculus page: hero text + Explorer.init(...)
+├── index.html              # Geometry page — HTML + CSS (the original)
+├── geometry.js             # Geometry page JavaScript (moved out of the HTML for the CSP)
+├── precalculus.html        # Pre-Calculus page shell (loads the scripts below)
+├── precalculus-page.js     # Pre-Calculus setup: hero art + Explorer.init(...)
 ├── precalculus-topics.js   # Pre-Calculus data: 14 topics (graph, formulas, Deep Dive, exercises)
 ├── precalculus-lab.js      # Function Transformer lab
-├── calculus.html           # Calculus page: hero text + Explorer.init(...)
+├── calculus.html           # Calculus page shell
+├── calculus-page.js        # Calculus setup: hero art + Explorer.init(...)
 ├── calculus-topics.js      # Calculus data: 15 topics
 ├── calculus-lab.js         # Derivative & Integral Lab
-├── linear-algebra.html     # Linear Algebra page: hero text + Explorer.init(... practice ...)
+├── linear-algebra.html     # Linear Algebra page shell
+├── linear-algebra-page.js  # Linear Algebra setup: hero art + Explorer.init(... practice ...)
 ├── linear-algebra-topics.js    # 16 topics (graphs, formulas, Deep Dives)
 ├── linear-algebra-exercises.js # Exercise GENERATORS: easy/medium/hard per topic, with steps
 ├── linear-algebra-lab.js       # Transform Playground (4×4 matrix + cube)
@@ -95,6 +99,9 @@ ciencias_naturales/
 │   ├── explorer.js         # Engine: builds hero, topics, Deep Dives, exercises, menu, EN/ES
 │   ├── graph.js            # Tiny plotting helper: math coordinates → SVG
 │   └── matrix-practice.js  # Fill-in-the-matrix UI, exact fractions, seeded randomness
+├── favicon.svg             # Tab icon
+├── tools/
+│   └── stamp-versions.mjs  # Cache-busting: adds ?v=<hash> to every local asset URL
 ├── README.md               # This file (English)
 ├── README.es.md            # Spanish README
 ├── LESSON.md               # Step-by-step tutorial (Steps 16–20 cover the engine)
@@ -184,3 +191,46 @@ G.myTopic = {
 ```
 
 Return `null` to reject a bad draw (the engine draws again). Entries may be numbers or exact fractions (`new MX.Fr(3, 4)`).
+
+---
+
+## Security & Caching (GitHub Pages)
+
+The site is static: no server code, no logins, no database, no cookies, nothing collected. What remains is browser-side hardening and making sure updates reach visitors cleanly.
+
+### Security
+
+GitHub Pages can't send custom HTTP headers, so the policy is set with `<meta>` tags in every page:
+
+| Protection | How | What it blocks |
+|---|---|---|
+| Content-Security-Policy | `<meta http-equiv="Content-Security-Policy">` | `script-src 'self'`: only our own `.js` files can run. Injected or inline scripts are refused (verified in the browser). |
+| No inline JavaScript | all JS lives in `.js` files; no `onclick=` attributes | Required for the strict `script-src` above |
+| Locked-down extras | `object-src 'none'`, `base-uri 'none'`, `form-action 'none'` | Plugins, `<base>` hijacking, form submission to other sites |
+| Referrer policy | `<meta name="referrer" content="strict-origin-when-cross-origin">` | Full page URLs leaking to other sites |
+
+`style-src` allows `'unsafe-inline'` because the SVG animations set delays with `style` attributes; style injection can't run code. The only third party is Google Fonts (`fonts.googleapis.com` / `fonts.gstatic.com`).
+
+**Limits of meta tags** (only real headers can do these, so they need a host like Cloudflare Pages or Netlify): `frame-ancestors` / `X-Frame-Options` (clickjacking — low risk here, the site has no actions to trick anyone into), `X-Content-Type-Options`, and `Permissions-Policy`.
+
+**On GitHub:** Settings → Pages → tick **Enforce HTTPS**.
+
+### Caching
+
+GitHub Pages caches every file for 10 minutes and that can't be changed. To stop a visitor from getting a new HTML page with an old cached script right after a deploy, every local `.js`, `.css` and `.svg` URL carries a content hash:
+
+```html
+<script src="shared/explorer.js?v=8fc64da9"></script>
+```
+
+A changed file gets a new hash, so browsers fetch it; unchanged files stay cached.
+
+**Before every deploy (push):**
+
+```bash
+node tools/stamp-versions.mjs
+```
+
+`node tools/stamp-versions.mjs --check` only reports, and exits with an error if any stamp is out of date.
+
+A GitHub Action (`.github/workflows/check-stamps.yml`) runs that check on every push to `main`: a forgotten stamp shows up as a red ✗ on the commit.

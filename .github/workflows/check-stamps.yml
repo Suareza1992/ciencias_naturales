@@ -1,0 +1,20 @@
+# Fails (red ✗ on the commit) if any HTML page references a .js/.css/.svg
+# whose ?v= version stamp is out of date — i.e. someone edited an asset and
+# forgot to run `node tools/stamp-versions.mjs` before pushing.
+name: Check version stamps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  stamps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify ?v= stamps match file contents
+        run: node tools/stamp-versions.mjs --check

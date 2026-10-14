@@ -1,0 +1,46 @@
+// linear-algebra-page.js — page setup for linear-algebra.html (Linear Algebra): hero art, menu glyph, Explorer.init(...).
+// Kept out of the HTML so the page can use a strict Content-Security-Policy.
+
+// ─── Decorative hero: a sheared grid ───────────────────────────────────────
+function gridPaths() {
+  let d1 = '', d2 = '';
+  for (let k = -6; k <= 30; k++) {
+    const x = k * 50;
+    d1 += `M${x},0 L${x + 260},400 `;          // sheared "vertical" lines
+  }
+  for (let k = 0; k <= 8; k++) d2 += `M0,${k * 50} L1200,${k * 50 - 120} `;
+  return `<path d="${d1}" stroke-width="0.6"/><path d="${d2}" stroke-width="0.6"/>`;
+}
+
+const NAV_GLYPH = `
+  <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M40,30 L28,30 L28,130 L40,130" stroke="#d4a853" stroke-width="1.4"/>
+    <path d="M120,30 L132,30 L132,130 L120,130" stroke="#d4a853" stroke-width="1.4"/>
+    <g font-family="Space Mono, monospace" font-size="15" fill="#d4a853" text-anchor="middle">
+      <text x="58" y="62">1</text><text x="102" y="62">0</text>
+      <text x="58" y="108">0</text><text x="102" y="108">1</text>
+    </g>
+    <line x1="80" y1="80" x2="140" y2="45" stroke="#e893c5" stroke-width="1.2"/>
+    <line x1="80" y1="80" x2="110" y2="140" stroke="#8fb8ff" stroke-width="1.2"/>
+  </svg>`;
+
+Explorer.init({
+  subject: 'linalg',
+  ui: {
+    docTitle: { en: 'Linear Algebra — Vectors to Quaternions', es: 'Álgebra Lineal — De Vectores a Cuaterniones' },
+    eyebrow:  { en: 'The Math Behind Every 3D World', es: 'La Matemática Detrás de Todo Mundo 3D' },
+    title:    { en: 'Linear<br>Algebra', es: 'Álgebra<br>Lineal' },
+    navTitle: { en: 'Linear Algebra', es: 'Álgebra Lineal' },
+    heroSub:  { en: 'Vectors, matrices and quaternions move every object, camera and headset in AR and VR. Learn the math, then practice it on hundreds of fill-in-the-matrix exercises with full worked solutions.',
+                es: 'Los vectores, las matrices y los cuaterniones mueven cada objeto, cámara y casco en AR y VR. Aprende la matemática y practícala con cientos de ejercicios de completar matrices con soluciones paso a paso.' },
+    exSub:    { en: 'Fill the blank cells of each matrix and press Check (Enter works too). Fractions like 3/4, decimals and negatives are accepted. Stuck? Show the steps or the answer. Every card has New ↻ and every topic has + More, so practice never runs out.',
+                es: 'Llena las celdas vacías de cada matriz y presiona Verificar (Enter también funciona). Se aceptan fracciones como 3/4, decimales y negativos. ¿Atascado? Mira los pasos o la respuesta. Cada tarjeta tiene Nuevo ↻ y cada tema tiene + Más, así que la práctica nunca se acaba.' },
+    footer:   { en: 'Geometry Explorer · Linear Algebra — An Interactive Educational Experience',
+                es: 'Explorador de Geometría · Álgebra Lineal — Una Experiencia Educativa Interactiva' },
+  },
+  heroCurve: gridPaths(),
+  navGlyph:  NAV_GLYPH,
+  topics:    LA_TOPICS,
+  lab:       LA_LAB,
+  practice:  MX.practice(LA_GENERATORS, { perLevel: 4 }),
+});

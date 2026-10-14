@@ -79,14 +79,18 @@ npx serve .
 
 ```
 ciencias_naturales/
-├── index.html              # Geometría — HTML + CSS + JS en un solo archivo (el original)
-├── precalculus.html        # Página de Precálculo: textos del hero + Explorer.init(...)
+├── index.html              # Página de Geometría — HTML + CSS (el original)
+├── geometry.js             # JavaScript de Geometría (fuera del HTML por la CSP)
+├── precalculus.html        # Estructura de la página de Precálculo
+├── precalculus-page.js     # Configuración de Precálculo: arte del hero + Explorer.init(...)
 ├── precalculus-topics.js   # Datos de Precálculo: 14 temas (gráfica, fórmulas, A Fondo, ejercicios)
 ├── precalculus-lab.js      # Transformador de Funciones
-├── calculus.html           # Página de Cálculo: textos del hero + Explorer.init(...)
+├── calculus.html           # Estructura de la página de Cálculo
+├── calculus-page.js        # Configuración de Cálculo
 ├── calculus-topics.js      # Datos de Cálculo: 15 temas
 ├── calculus-lab.js         # Laboratorio de Derivadas e Integrales
-├── linear-algebra.html     # Página de Álgebra Lineal
+├── linear-algebra.html     # Estructura de la página de Álgebra Lineal
+├── linear-algebra-page.js  # Configuración de Álgebra Lineal
 ├── linear-algebra-topics.js    # 16 temas (gráficas, fórmulas, A Fondo)
 ├── linear-algebra-exercises.js # GENERADORES de ejercicios: fácil/medio/difícil por tema, con pasos
 ├── linear-algebra-lab.js       # Laboratorio de Transformaciones (matriz 4×4 + cubo)
@@ -95,6 +99,9 @@ ciencias_naturales/
 │   ├── explorer.js         # Motor: construye hero, temas, A Fondo, ejercicios, menú, EN/ES
 │   ├── graph.js            # Mini ayudante de gráficas: coordenadas matemáticas → SVG
 │   └── matrix-practice.js  # Interfaz de completar matrices, fracciones exactas, aleatoriedad con semilla
+├── favicon.svg             # Ícono de la pestaña
+├── tools/
+│   └── stamp-versions.mjs  # Anti-caché: agrega ?v=<hash> a cada archivo local
 ├── README.md               # Documentación en inglés
 ├── README.es.md            # Este archivo (Español)
 ├── LESSON.md               # Tutorial paso a paso (los Pasos 16–20 explican el motor)
@@ -144,3 +151,23 @@ El diseño visual y el patrón de animación por scroll están inspirados en el 
 ## Licencia
 
 MIT — libre para usar y modificar con fines educativos.
+
+---
+
+## Seguridad y Caché (GitHub Pages)
+
+El sitio es estático: sin código de servidor, sin inicio de sesión, sin base de datos, sin cookies, sin recolectar datos.
+
+**Seguridad:** GitHub Pages no permite encabezados HTTP propios, así que la política va en etiquetas `<meta>` en cada página. La Content-Security-Policy usa `script-src 'self'`: solo corren nuestros propios archivos `.js`, y cualquier script inyectado se bloquea (verificado en el navegador). Por eso todo el JavaScript vive en archivos `.js` y no hay atributos `onclick=`. También: `object-src 'none'`, `base-uri 'none'`, `form-action 'none'` y una política de referencia estricta. En GitHub: Settings → Pages → marca **Enforce HTTPS**. Las protecciones contra clickjacking (`frame-ancestors`) solo se pueden poner con encabezados reales (Cloudflare Pages o Netlify).
+
+**Caché:** GitHub Pages guarda cada archivo en caché 10 minutos. Para que nadie reciba una página nueva con un script viejo después de publicar, cada `.js`, `.css` y `.svg` local lleva un hash de su contenido (`explorer.js?v=8fc64da9`).
+
+**Antes de cada publicación (push):**
+
+```bash
+node tools/stamp-versions.mjs
+```
+
+`--check` solo reporta y devuelve error si algún sello está desactualizado.
+
+Una GitHub Action (`.github/workflows/check-stamps.yml`) hace esa verificación en cada push a `main`: un sello olvidado aparece como una ✗ roja en el commit.
